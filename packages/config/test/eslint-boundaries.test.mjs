@@ -21,7 +21,10 @@ async function lint(relFile, source) {
 
 describe('dependency rule contracts <- db <- domain <- apps', () => {
   it('forbids db importing domain', async () => {
-    const ids = await lint('packages/db/src/x.ts', `import { domain } from '../../domain/src/index';\nexport { domain };\n`);
+    const ids = await lint(
+      'packages/db/src/x.ts',
+      `import { domain } from '../../domain/src/index';\nexport { domain };\n`,
+    );
     expect(ids).toContain('boundaries/element-types');
   });
 
@@ -34,7 +37,10 @@ describe('dependency rule contracts <- db <- domain <- apps', () => {
   });
 
   it('forbids contracts importing anything internal', async () => {
-    const ids = await lint('packages/contracts/src/z.ts', `import { db } from '../../db/src/index';\nexport { db };\n`);
+    const ids = await lint(
+      'packages/contracts/src/z.ts',
+      `import { db } from '../../db/src/index';\nexport { db };\n`,
+    );
     expect(ids).toContain('boundaries/element-types');
   });
 });

@@ -21,9 +21,9 @@ describe('nodeConfig allowedDomainSubpaths', () => {
   const restricted = { allowedDomainSubpaths: ['checkin', 'shared'] };
 
   it('rejects @tms/domain/admin when only checkin and shared are allowed', async () => {
-    expect(await lint(`import { x } from '@tms/domain/admin';\nexport { x };\n`, restricted)).toContain(
-      'no-restricted-imports',
-    );
+    expect(
+      await lint(`import { x } from '@tms/domain/admin';\nexport { x };\n`, restricted),
+    ).toContain('no-restricted-imports');
   });
 
   it('rejects the root @tms/domain export', async () => {

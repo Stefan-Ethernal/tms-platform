@@ -2,7 +2,9 @@
   "name": "tms-platform",
   "private": true,
   "packageManager": "pnpm@12.5.1",
-  "engines": { "node": ">=24.0.0" },
+  "engines": {
+    "node": ">=24.0.0"
+  },
   "scripts": {
     "prepare": "husky",
     "dev": "turbo run dev",
@@ -29,7 +31,12 @@
     "typescript": "catalog:"
   },
   "lint-staged": {
-    "*.{ts,tsx,mts,cts,js,mjs,cjs}": ["eslint --fix --no-warn-ignored", "prettier --write"],
-    "*.{json,md,yml,yaml,css,html}": ["prettier --write"]
+    "*.{ts,tsx,mts,cts,js,mjs,cjs}": [
+      "eslint --fix --no-warn-ignored",
+      "prettier --write"
+    ],
+    "*.{json,md,yml,yaml,css,html}": [
+      "prettier --write"
+    ]
   }
 }

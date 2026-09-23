@@ -51,7 +51,8 @@ export function boundariesConfig(rootPath) {
         'error',
         {
           default: 'disallow',
-          message: '${file.type} may not import ${dependency.type} (dependency rule contracts <- db <- domain <- apps)',
+          message:
+            '${file.type} may not import ${dependency.type} (dependency rule contracts <- db <- domain <- apps)',
           rules: [
             { from: 'db', allow: ['contracts'] },
             { from: 'auth-core', allow: ['contracts'] },
@@ -79,7 +80,10 @@ export function baseConfig({ tsconfigRootDir, boundariesRootPath = repoRoot }) {
         parserOptions: { projectService: true, tsconfigRootDir },
       },
       rules: {
-        '@typescript-eslint/consistent-type-imports': ['error', { fixStyle: 'inline-type-imports' }],
+        '@typescript-eslint/consistent-type-imports': [
+          'error',
+          { fixStyle: 'inline-type-imports' },
+        ],
         '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
       },
     },
