@@ -75,7 +75,7 @@ Inputs the spec implies but that need explicit tests (each pinned to the owning 
 
 **Files:**
 - Create: `package.json`, `pnpm-workspace.yaml`, `.npmrc`, `.nvmrc`, `turbo.json`, `.editorconfig`, `.prettierrc.json`, `.prettierignore`, `eslint.config.mjs` (root, for root-level files linted by lint-staged)
-- Modify: `.gitignore` (add `.cache/`, `generated/`, `tools/claude-plugin/tests/tmp/`)
+- Modify: `.gitignore` (add `.cache/`, `**/generated/`)
 - Create: `packages/config/package.json`, `packages/config/tsconfig/base.json`, `packages/config/tsconfig/nest.json`, `packages/config/tsconfig/react.json`, `packages/config/tsconfig/react-node.json`, `packages/config/tsconfig/library.json`, `packages/config/eslint/base.mjs`, `packages/config/eslint/node.mjs`, `packages/config/eslint/react.mjs`, `packages/config/jest/create-config.mjs`, `packages/config/eslint.config.mjs`, `packages/config/vitest.config.mjs`
 - Test: `packages/config/test/eslint-node.test.mjs`, `packages/config/test/eslint-boundaries.test.mjs` with fixtures under `packages/config/test/fixtures/`
 
@@ -279,13 +279,12 @@ export default [
 ];
 ```
 
-Append to `.gitignore`:
+Append to `.gitignore` (note: `tools/claude-plugin/tests/tmp/` is deliberately **not** ignored — Prettier skips gitignored files, which would defeat the format-on-edit hook's positive test in Task 10a; that test deletes its own temporary file):
 
 ```
 # Tool caches and generated code
 .cache/
 **/generated/
-tools/claude-plugin/tests/tmp/
 ```
 
 - [ ] **Step 2: Write the `packages/config` manifest, vitest config and the failing test**
@@ -2669,10 +2668,10 @@ Expected: `verify`, `hygiene`, `db-drift` and `e2e` all succeed. Fix and re-push
 **Files:**
 - Create: `tools/claude-plugin/package.json`, `tools/claude-plugin/vitest.config.mjs`, `tools/claude-plugin/eslint.config.mjs`
 - Create (the plugin proper, kept free of tests and package files so it stays publishable): `tools/claude-plugin/ethernal-nest-react/.claude-plugin/plugin.json`, `tools/claude-plugin/ethernal-nest-react/hooks/hooks.json`, `tools/claude-plugin/ethernal-nest-react/hooks/lib/stdin.mjs`, `tools/claude-plugin/ethernal-nest-react/hooks/lib/project-root.mjs`, `tools/claude-plugin/ethernal-nest-react/hooks/lib/protect.mjs`, `tools/claude-plugin/ethernal-nest-react/hooks/lib/format.mjs`, `tools/claude-plugin/ethernal-nest-react/hooks/lib/reminder.mjs`, `tools/claude-plugin/ethernal-nest-react/hooks/protect-files.mjs`, `tools/claude-plugin/ethernal-nest-react/hooks/format-on-edit.mjs`, `tools/claude-plugin/ethernal-nest-react/hooks/verify-reminder.mjs`
-- Test: `tools/claude-plugin/tests/protect.test.mjs`, `tools/claude-plugin/tests/format.test.mjs`, `tools/claude-plugin/tests/reminder.test.mjs`, `tools/claude-plugin/tests/hooks-cli.test.mjs` (writes temporary files under `tools/claude-plugin/tests/tmp/`, gitignored in Task 1)
+- Test: `tools/claude-plugin/tests/protect.test.mjs`, `tools/claude-plugin/tests/format.test.mjs`, `tools/claude-plugin/tests/reminder.test.mjs`, `tools/claude-plugin/tests/hooks-cli.test.mjs` (writes a temporary file under `tools/claude-plugin/tests/tmp/` and deletes it; the directory is not gitignored because Prettier skips gitignored files)
 
 **Interfaces:**
-- Consumes: root `pnpm exec eslint` / `pnpm exec prettier` (Task 1), `.gitignore` entry for `tests/tmp/` (Task 1).
+- Consumes: root `pnpm exec eslint` / `pnpm exec prettier` (Task 1).
 - Produces: `classifyEdit(filePath: string | undefined, projectRoot: string): { blocked: boolean; reason?: string }`, `shouldFormat(relPath: string | undefined): boolean`, `shouldRemind({ porcelain: string; stopHookActive: boolean }): boolean`, `REMINDER: string`; hook executables driven over stdin. Task 10b adds the agent, skills, marketplace and project settings around them.
 
 **Documented facts this task relies on** (verified 2026-09-23 against code.claude.com/docs, corrected by the critic pass): `hooks.json` is `{"hooks": {"<Event>": [{"matcher": "...", "hooks": [{"type": "command", "command": "...", "timeout": n}]}]}}`; `${CLAUDE_PLUGIN_ROOT}` is the plugin's absolute path and `CLAUDE_PROJECT_DIR` is the project root where the session started (both exported to hook processes; `cwd` in the payload can be a subdirectory, so paths are resolved against `CLAUDE_PROJECT_DIR`); hook stdin JSON carries `tool_name`, `tool_input.file_path` (or `notebook_path`), `cwd`, and for Stop `stop_hook_active`; a PreToolUse hook blocks with exit code 2 and stderr as the reason; a Stop hook gives **non-blocking** guidance with stdout `{"hookSpecificOutput": {"hookEventName": "Stop", "additionalContext": "..."}}` (shown as "Stop hook feedback", no error), while `{"decision": "block"}` would prevent stopping.
@@ -3174,7 +3173,7 @@ Expected: no errors or warnings, exit 0 (agents and skills are added in Task 10b
 
 ```bash
 git add tools/claude-plugin pnpm-lock.yaml docs/efficiency/critical-path.md
-git commit -m "feat(plugin): add ethernal-nest-react hooks for protected files, format-on-edit and verify reminder"
+git commit -m "feat(plugin): add hooks for protected files, format-on-edit and verify reminder"
 ```
 
 ---
@@ -3446,7 +3445,7 @@ Manual hook check (record in the journal): in that session ask Claude to append 
 
 ```bash
 git add tools/claude-plugin .claude/settings.json docs/efficiency/critical-path.md
-git commit -m "feat(plugin): add plan-critic agent, verify and pr skills, local marketplace and project settings"
+git commit -m "feat(plugin): add plan-critic agent, verify/pr skills, marketplace and settings"
 ```
 
 ---
