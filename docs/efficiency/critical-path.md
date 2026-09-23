@@ -40,10 +40,81 @@ Approach values: `inline` (Claude in main session), `subagent` (dispatched agent
 - Whether `e2e` stays a required check on `main` once its duration is known (~2 min in CI).
 - Delete the now-unused local `docs/client/forbidden-terms.txt` (ADR 0007 removed the check that read it) and confirm the tracked `docs/client/README.md` (main's version, kept by the split) reads as intended.
 - Add the required status checks (`verify`, `hygiene`, `db-drift`, and `e2e` per the item above) to the `main` ruleset after the stack merges.
+- pnpm's release-age gate is advisory only today (no `minimumReleaseAge` set beyond the auto-generated `minimumReleaseAgeExclude`); recommend setting it strict at `minimumReleaseAge: 1440` (24h) plus a matching Dependabot cooldown, so a freshly published (and potentially compromised) package version cannot land before the community has had a day to flag it (architect review, workspace group, W6).
+- Connect the Claude in Chrome extension, or accept that visual frontend verification stays `not run`: Task 12 Step 1 found the extension not connected (nested `claude --chrome -p` loaded the tools but reported it disconnected), and spec §13 step 4 calls for a `claude --chrome` pass with screenshots on every frontend PR.
 
-## Inputs for later phase plans (from the final review)
+## Inputs for later phase plans
 
-- Phase 1: where the shared Nest bootstrap lives before a third copy appears (`@tms/logger` or a small bootstrap package); a `node-library` tsconfig preset vs package-local `types: ["node"]`; migrate image `deploy --prod`, `COPY --chown=node:node` and the `@prisma/dev` footprint; a boundaries test using `@tms/*` specifiers once `contracts`/`db` exist; `predev` switches to `migrate dev` + sync.
-- Phase 6: regenerate the vendored MSW worker (`apps/*/public/mockServiceWorker.js`) when `msw` is bumped.
-- Phase 9: cache gitleaks in CI, SHA-pin actions, Docker layer caching (`pnpm fetch`), non-root Caddy.
-- Phase 10: plugin `format.mjs` case-insensitivity, temp-dir cleanup in `hooks-cli.test.mjs`.
+One line per item: what, why, and the phase that owns it. Sourced from the final whole-branch
+review and the architect reviews of the published PR stack.
+
+- Phase 1 (task 1, before any cross-package import lands): `eslint-plugin-boundaries` never fires
+  for `@tms/*` specifiers (only relative imports resolve) — add
+  `eslint-import-resolver-typescript` and a specifier-based test; phase 0 has no package pair the
+  rule could protect yet, but phase 1 is the first to add one (architect review, workspace group,
+  W1).
+- Phase 1: decide where the shared Nest bootstrap lives before a third copy of it appears —
+  `@tms/logger` or a small bootstrap package (final review).
+- Phase 1: a `node-library` tsconfig preset vs the package-local `"types": ["node"]` added to
+  `packages/db/tsconfig.json` — decide before `auth-core`/`domain`/`logger` each repeat it (final
+  review).
+- Phase 1: the `migrate` image is 760MB — switch to `deploy --prod`, add
+  `COPY --chown=node:node` (currently root-owned under `USER node`), and reconsider the
+  `@prisma/dev` footprint it pulls in (final review).
+- Phase 1: `predev` switches from `prisma migrate deploy` to `migrate dev` + permission sync, per
+  spec D12 (final review; also the subject of ADR-0002's D10-8 fix).
+- Phase 1: turbo's `test` task prints "no output files found" noise because test tasks declare
+  `outputs: ["coverage/**"]` with no coverage configured yet — set `outputs: []` (architect review,
+  docs group, D10-3).
+- Phase 1: narrow PR #3's body claim "Review Focus 4 is tested" to what is actually covered, and add
+  a process-level `PORT` env test (architect review, apps group, A-4).
+- Phase 1: `HOST` env default — bind `127.0.0.1` in dev vs `0.0.0.0` in compose — is undecided
+  (architect review, apps group, A-6).
+- Phase 1: a cross-origin negative check once api-admin and api-driver actually diverge enough for
+  one to matter (architect review, apps group, A-8).
+- Phase 1: land the kiosk `/api` → api-driver routing-identity check (today's smoke/e2e tests can't
+  tell api-admin and api-driver apart by their identical 404s) once D5's `/health` exists and
+  returns the service name; a stop-api-admin smoke step would make smoke stateful, so this waits for
+  `/health` instead (architect review, infra group, I7-1).
+- Phase 1: API/Caddy healthchecks, restart policies and a migrate-ordering proof, together with
+  `/health` (architect review, infra group, M6-6).
+- Phase 1/4: split the single `app` boundaries element type into separate api/web element types once
+  `packages/domain` lands (architect review, workspace group, W5).
+- Phase 2: remove the `X-Powered-By` header via helmet — deferred because there is no auth yet to
+  exercise it meaningfully (architect review, apps group, A-7).
+- Phase 3a (prep, before the parallel lanes start): Claude Code hooks resolve the project root as
+  the git toplevel of the hook input `cwd`, falling back to `CLAUDE_PROJECT_DIR` — today
+  `CLAUDE_PROJECT_DIR` wins over `cwd`, so a hook running in a worktree looks at the main checkout
+  instead; the settings.json deny rule for `docs/client/` still covers worktrees in the meantime
+  (architect review, tooling group, 9-M1).
+- Phase 4/5: `no-restricted-imports` re-includes only the literal `@tms/domain/checkin` and
+  `@tms/domain/shared` subpaths (matches spec section 6's two subpath exports exactly) — revisit
+  once `packages/domain` exists and could export more (phase 0 Task 1 minor, restated by architect
+  review docs group D10-3).
+- Phase 5: an api-driver subpath-import test alongside the app-boundary tests, done together with
+  W1/W5 once both land (architect review, apps group, A-9).
+- Phase 6: regenerate the vendored MSW worker (`apps/*/public/mockServiceWorker.js`) when `msw` is
+  bumped (final review).
+- Phase 6: an automated check for the Vite dev-proxy behaviour (today only manually verified)
+  (architect review, apps group, W-1b).
+- Phase 6: guard the MSW worker so it is dev-only and never ships inside a production build image
+  (architect review, apps group, W-4, together with M6-7's prod-image check below).
+- Phase 6: page titles and `lang` attribute via i18n keys or an explicit, documented brand exception
+  (architect review, apps group, W-6).
+- Phase 9: cache gitleaks in CI, SHA-pin third-party actions, add Docker layer caching
+  (`pnpm fetch`), run Caddy as non-root (final review).
+- Phase 9: a missing hashed static asset falls through to a 200 `index.html` instead of a 404
+  (architect review, infra group, M6-7).
+- Phase 9: give `e2e/tests/support/smoke.ts`'s looped API assertions a per-path `test.step` so a
+  failure names the path instead of only the project (phase 0 Task 6 minor, restated by architect
+  review docs group D10-3).
+- Phase 9: de-duplicate ports, commands and the dependency rule, which are currently repeated
+  verbatim across `CLAUDE.md`, `README.md` and `docs/architecture.md`, with the `docs-sync` skill
+  (architect review, docs group, D10-3).
+- Phase 10: plugin `format.mjs` FORMATTABLE/SKIP_DIRS case-insensitivity, and temp-dir cleanup in
+  `hooks-cli.test.mjs` (final review).
+- Phase 10: write `docs/RETROSPECTIVE.md`, which `README.md` already cites as an "end of POC"
+  deliverable (architect review, docs group, D10-3).
+- Unphased: confirm that Dependabot's `npm` ecosystem actually bumps the pnpm `catalog:` entries in
+  `pnpm-workspace.yaml` on its first weekly run — declined to judge without a live run (architect
+  review, workspace group, D10-3).
