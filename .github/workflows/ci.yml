@@ -38,6 +38,7 @@ jobs:
     timeout-minutes: 15
     services:
       postgres:
+        # Keep in sync with infra/docker-compose.yml: Dependabot updates the compose file, not this.
         image: postgres:16-alpine
         env:
           POSTGRES_USER: tms
