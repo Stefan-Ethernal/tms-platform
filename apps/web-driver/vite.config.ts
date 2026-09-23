@@ -6,7 +6,8 @@ export default defineConfig({
   server: {
     port: 5174,
     strictPort: true,
-    proxy: { '/api': { target: 'http://localhost:3002', changeOrigin: false } },
+    // Same routing as Caddy's `@api path /api /api/*` (D11): /api and /api/..., not /apifoo.
+    proxy: { '^/api(?:[/?]|$)': { target: 'http://localhost:3002', changeOrigin: false } },
   },
   test: {
     environment: 'jsdom',
