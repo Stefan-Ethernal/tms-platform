@@ -2,8 +2,10 @@
 ARG APP
 FROM node:24-bookworm-slim AS build
 ARG APP
-RUN npm install -g pnpm@12.5.1
 WORKDIR /repo
+# pnpm version from package.json#packageManager, the single place it is pinned.
+COPY package.json ./
+RUN npm install -g "$(node -p "require('./package.json').packageManager")"
 COPY . .
 RUN --mount=type=cache,id=pnpm-store,target=/root/.local/share/pnpm/store \
     pnpm install --frozen-lockfile --filter "@tms/${APP}..."

@@ -5,8 +5,10 @@ FROM node:24-bookworm-slim AS build
 # defaulting to openssl-1.1.x and trying to re-fetch/write itself at container start.
 RUN apt-get update && apt-get install -y --no-install-recommends openssl ca-certificates \
  && rm -rf /var/lib/apt/lists/*
-RUN npm install -g pnpm@12.5.1
 WORKDIR /repo
+# pnpm version from package.json#packageManager, the single place it is pinned.
+COPY package.json ./
+RUN npm install -g "$(node -p "require('./package.json').packageManager")"
 COPY . .
 RUN --mount=type=cache,id=pnpm-store,target=/root/.local/share/pnpm/store \
     pnpm install --frozen-lockfile --filter "@tms/db..."
