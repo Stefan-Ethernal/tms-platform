@@ -7,8 +7,9 @@ services:
       POSTGRES_USER: tms
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-tms}
       POSTGRES_DB: tms
+    # Postgres and Mailpit publish on loopback only: dev credentials and mail stay off the LAN.
     ports:
-      - '${POSTGRES_PORT:-5432}:5432'
+      - '127.0.0.1:${POSTGRES_PORT:-5432}:5432'
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -19,9 +20,9 @@ services:
 
   mailpit:
     image: axllent/mailpit:v1.31
-    ports:
-      - '${MAILPIT_UI_PORT:-8025}:8025'
-      - '${MAILPIT_SMTP_PORT:-1025}:1025'
+    ports: # loopback only, like postgres
+      - '127.0.0.1:${MAILPIT_UI_PORT:-8025}:8025'
+      - '127.0.0.1:${MAILPIT_SMTP_PORT:-1025}:1025'
     healthcheck:
       test: ['CMD', '/mailpit', 'readyz']
       interval: 5s
