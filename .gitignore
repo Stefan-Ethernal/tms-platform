@@ -33,3 +33,7 @@ e2e/.auth/
 
 # Claude Code local settings
 .claude/settings.local.json
+
+# Tool caches and generated code
+.cache/
+**/generated/
