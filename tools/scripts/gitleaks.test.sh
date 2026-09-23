@@ -25,7 +25,7 @@ pass "reuses the cached binary offline"
 
 # 3. tampered checksum: refuses to install, leaves no binary
 mkdir -p "$work/release"
-asset="gitleaks_8.30.1_$(uname -s | tr '[:upper:]' '[:lower:]')_x64.tar.gz"
+asset="$(GITLEAKS_PRINT_ASSET=1 "$SCRIPT")" # same os/arch mapping as the download path
 cp "$work/cache/gitleaks" "$work/gitleaks" && (cd "$work" && tar -czf "release/$asset" gitleaks)
 echo "0000000000000000000000000000000000000000000000000000000000000000  $asset" > "$work/release/gitleaks_8.30.1_checksums.txt"
 if GITLEAKS_CACHE_DIR="$work/cache2" GITLEAKS_BASE_URL="file://$work/release" "$SCRIPT" version 2>"$work/err"; then
