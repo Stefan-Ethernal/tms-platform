@@ -47,6 +47,20 @@ if [ "${1:-}" = "--full" ]; then
     body=$(curl -sS "http://localhost:$2/api/does-not-exist")
     echo "$body" | grep -q '"statusCode":404' || fail "$1: /api did not reach the API (got: $body)"
     echo "ok   $1 forwards /api to the API (JSON 404, not index.html)"
+    # Regression: Caddy's path matcher `/api/*` alone does not match the bare `/api`
+    # path (no trailing slash), so it fell through to the SPA handler and served
+    # index.html instead of the API's 404. Guard both the status and the content type.
+    code=""
+    for _ in $(seq 1 30); do
+      code=$(curl -s -o /dev/null -w '%{http_code}' "http://localhost:$2/api")
+      [ "$code" = "404" ] && break
+      sleep 2
+    done
+    [ "$code" = "404" ] || fail "$1: bare /api answered $code, expected 404 from the API"
+    headers=$(curl -sS -D- -o /dev/null "http://localhost:$2/api")
+    echo "$headers" | grep -qi '^content-type: application/json' \
+      || fail "$1: bare /api did not return JSON (got headers: $headers)"
+    echo "ok   $1 forwards bare /api to the API (JSON 404, not index.html)"
   }
   check_origin web-admin "${CADDY_ADMIN_PORT:-8080}" "TMS Admin"
   check_origin web-driver "${CADDY_KIOSK_PORT:-8081}" "TMS Kiosk"

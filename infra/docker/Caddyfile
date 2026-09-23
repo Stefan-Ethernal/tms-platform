@@ -6,7 +6,8 @@
 # Back-office: SPA + /api -> api-admin (single origin, D11)
 :8080 {
 	encode gzip
-	handle /api/* {
+	@api path /api /api/*
+	handle @api {
 		reverse_proxy api-admin:3001
 	}
 	handle {
@@ -19,7 +20,8 @@
 # Kiosk: SPA + /api -> api-driver
 :8081 {
 	encode gzip
-	handle /api/* {
+	@api path /api /api/*
+	handle @api {
 		reverse_proxy api-driver:3002
 	}
 	handle {
