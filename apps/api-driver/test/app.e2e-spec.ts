@@ -1,15 +1,29 @@
 import { Test } from '@nestjs/testing';
-import type { INestApplication } from '@nestjs/common';
+import { Controller, Get, type INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import type { App } from 'supertest/types';
 import { AppModule } from '../src/app.module';
 import { configureApp } from '../src/app';
 
+/** Test-only route: the skeleton has none, so the /api prefix is otherwise unobservable. */
+@Controller('probe')
+class ProbeController {
+  @Get()
+  get(): { ok: true } {
+    return { ok: true };
+  }
+}
+
 describe('api-driver skeleton (e2e)', () => {
   let app: INestApplication<App>;
+  let sigtermListenersBefore: number;
 
   beforeAll(async () => {
-    const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
+    const moduleRef = await Test.createTestingModule({
+      imports: [AppModule],
+      controllers: [ProbeController],
+    }).compile();
+    sigtermListenersBefore = process.listenerCount('SIGTERM');
     app = configureApp(moduleRef.createNestApplication());
     await app.init();
   });
@@ -31,5 +45,14 @@ describe('api-driver skeleton (e2e)', () => {
 
   it('serves nothing outside the /api prefix', async () => {
     await request(app.getHttpServer()).get('/').expect(404);
+  });
+
+  it('mounts routes under /api only', async () => {
+    await request(app.getHttpServer()).get('/api/probe').expect(200, { ok: true });
+    await request(app.getHttpServer()).get('/probe').expect(404);
+  });
+
+  it('listens for SIGTERM so a container stops gracefully', () => {
+    expect(process.listenerCount('SIGTERM')).toBe(sigtermListenersBefore + 1);
   });
 });
