@@ -30,14 +30,18 @@ export function claudeMdLineCount(text) {
   return text === '' ? 0 : text.replace(/\n$/, '').split('\n').length;
 }
 
-/** @param {string} text newline- or comma-separated terms; `#` starts a comment line */
+/** @param {string} text newline- or comma-separated terms; a line whose trimmed text starts with `#` is a comment */
 export function parseForbiddenTerms(text) {
+  const withoutComments = text
+    .split('\n')
+    .filter((line) => !line.trim().startsWith('#'))
+    .join('\n');
   return [
     ...new Set(
-      text
+      withoutComments
         .split(/[\n,]/)
         .map((t) => t.trim())
-        .filter((t) => t && !t.startsWith('#')),
+        .filter(Boolean),
     ),
   ];
 }
@@ -68,7 +72,13 @@ export function gitGrepForbidden({ repoRoot, terms, staged }) {
       });
   } catch (error) {
     if (error && error.status === 1) return []; // git grep: no match
-    throw error;
+    // Node's execFileSync error message embeds every argument verbatim (including each `-e
+    // <term>`), and git's own stderr is intentionally discarded above; never let either reach the
+    // caller (an uncaught exception here would print straight to CI logs on a public repo). The
+    // original error is deliberately not attached as `cause`: its message contains the forbidden
+    // term(s) verbatim.
+    // eslint-disable-next-line preserve-caught-error -- see comment above; cause would leak the term
+    throw new Error(`git grep failed (exit ${error?.status ?? 'unknown'})`);
   }
 }
 

@@ -22,6 +22,9 @@ describe('parseForbiddenTerms', () => {
   it('returns an empty list for empty input', () => {
     expect(parseForbiddenTerms('')).toEqual([]);
   });
+  it('ignores commas inside a comment line', () => {
+    expect(parseForbiddenTerms('# names, one per line\nAcme')).toEqual(['Acme']);
+  });
 });
 
 describe('gitGrepForbidden', () => {
@@ -69,6 +72,19 @@ describe('gitGrepForbidden', () => {
       'b.ts:1',
     ]);
     expect(gitGrepForbidden({ repoRoot: '/nonexistent', terms: [], staged: true })).toEqual([]);
+  });
+
+  it('never leaks a forbidden term in the thrown error when git grep fails for a reason other than no-match', () => {
+    const dir = mkdtempSync(path.join(os.tmpdir(), 'hyg-')); // not a git repo: no `git init`
+    let thrown;
+    try {
+      gitGrepForbidden({ repoRoot: dir, terms: ['DUMMY_TERM_FOR_TEST'], staged: false });
+    } catch (error) {
+      thrown = error;
+    }
+    expect(thrown).toBeInstanceOf(Error);
+    expect(thrown.message).not.toContain('DUMMY_TERM_FOR_TEST');
+    expect(thrown.cause).toBeUndefined();
   });
 });
 
