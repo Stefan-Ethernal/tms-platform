@@ -1,0 +1,7 @@
+{
+  "name": "ethernal-nest-react",
+  "version": "0.1.0",
+  "description": "Ethernal's NestJS + React + Prisma workflow: TDD skills, verification and PR protocol, plan critic, and hooks that protect secrets and format on edit.",
+  "author": { "name": "Ethernal" },
+  "keywords": ["nestjs", "react", "prisma", "tdd", "hooks", "plan-critic"]
+}
