@@ -1,0 +1,3 @@
+pnpm exec lint-staged
+node tools/scripts/check-hygiene.mjs
+tools/scripts/gitleaks.sh git --pre-commit --staged --redact --no-banner
