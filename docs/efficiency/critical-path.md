@@ -82,6 +82,9 @@ review and the architect reviews of the published PR stack.
   `packages/domain` lands (architect review, workspace group, W5).
 - Phase 2: remove the `X-Powered-By` header via helmet — deferred because there is no auth yet to
   exercise it meaningfully (architect review, apps group, A-7).
+- Phase 2: give `auth-core` its own `no-restricted-imports` rule against `@nestjs/*`/`@prisma/*`
+  specifiers when the package lands — `eslint-plugin-boundaries` only stops it importing
+  `db`/`domain`, it does not check npm-package specifiers (architect review, docs group, D10-6).
 - Phase 3a (prep, before the parallel lanes start): Claude Code hooks resolve the project root as
   the git toplevel of the hook input `cwd`, falling back to `CLAUDE_PROJECT_DIR` — today
   `CLAUDE_PROJECT_DIR` wins over `cwd`, so a hook running in a worktree looks at the main checkout

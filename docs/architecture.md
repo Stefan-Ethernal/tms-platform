@@ -38,9 +38,12 @@ origins from one Caddy container on one Docker network.
 
 ## Dependency rule
 
-`contracts <- db <- domain <- apps`; `auth-core` is Nest-free and Prisma-free. Enforced by
-`eslint-plugin-boundaries` (`packages/config/eslint/base.mjs`). `api-driver` may import only
-`@tms/domain/checkin` and `@tms/domain/shared` (`no-restricted-imports` in its eslint config).
+`contracts <- db <- domain <- apps`, enforced by `eslint-plugin-boundaries`
+(`packages/config/eslint/base.mjs`). `api-driver` may import only `@tms/domain/checkin` and
+`@tms/domain/shared` (`no-restricted-imports` in its eslint config). `auth-core` is Nest-free and
+Prisma-free by convention; boundaries stops it importing `db`/`domain`, and direct
+`@nestjs/*`/`@prisma/*` imports get their own `no-restricted-imports` rule when the package lands
+(phase 2) — boundaries itself does not check npm-package specifiers.
 
 ## Environments
 
