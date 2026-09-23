@@ -47,23 +47,37 @@ export function boundariesConfig(rootPath) {
       ],
     },
     rules: {
-      'boundaries/element-types': [
+      'boundaries/dependencies': [
         'error',
         {
           default: 'disallow',
           message:
-            '${file.type} may not import ${dependency.type} (dependency rule contracts <- db <- domain <- apps)',
-          rules: [
-            { from: 'db', allow: ['contracts'] },
-            { from: 'auth-core', allow: ['contracts'] },
-            { from: 'logger', allow: ['contracts'] },
-            { from: 'domain', allow: ['contracts', 'db', 'auth-core', 'logger'] },
-            { from: 'ui', allow: ['contracts'] },
-            { from: 'app', allow: ['contracts', 'db', 'auth-core', 'logger', 'domain', 'ui'] },
+            '{{from.type}} may not import {{to.type}} (dependency rule contracts <- db <- domain <- apps)',
+          policies: [
+            policy('db', ['contracts']),
+            policy('auth-core', ['contracts']),
+            policy('logger', ['contracts']),
+            policy('domain', ['contracts', 'db', 'auth-core', 'logger']),
+            policy('ui', ['contracts']),
+            policy('app', ['contracts', 'db', 'auth-core', 'logger', 'domain', 'ui']),
           ],
         },
       ],
     },
+  };
+}
+
+/**
+ * One `boundaries/dependencies` policy in the v7 entity-selector form: files of element type
+ * `from` may import files of each element type in `allowed`.
+ *
+ * @param {string} from
+ * @param {string[]} allowed
+ */
+function policy(from, allowed) {
+  return {
+    from: { element: { type: from } },
+    allow: allowed.map((type) => ({ to: { element: { type } } })),
   };
 }
 
