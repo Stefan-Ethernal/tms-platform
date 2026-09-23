@@ -1,0 +1,78 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  TURBO_TELEMETRY_DISABLED: '1'
+  DO_NOT_TRACK: '1'
+
+jobs:
+  verify:
+    name: verify
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm turbo run lint typecheck test build
+      - run: pnpm format:check
+
+  hygiene:
+    name: hygiene
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+      - name: No client-type documents outside docs/client, CLAUDE.md within limit
+        run: node tools/scripts/check-hygiene.mjs
+      - name: gitleaks over the full history
+        run: tools/scripts/gitleaks.sh git --redact --no-banner
+
+  db-drift:
+    name: db-drift
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: tms
+          POSTGRES_PASSWORD: tms
+          POSTGRES_DB: tms
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U tms -d tms"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 12
+    env:
+      DATABASE_URL: postgresql://tms:tms@localhost:5432/tms
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile --filter @tms/db...
+      - name: Apply migrations
+        run: pnpm --filter @tms/db db:migrate:deploy
+      - name: Schema matches migrations (no drift)
+        run: pnpm --filter @tms/db db:drift
