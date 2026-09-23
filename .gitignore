@@ -1,0 +1,35 @@
+# Client-provided documents: never committed (public repository)
+docs/client/*
+!docs/client/README.md
+
+# Dependencies and build output
+node_modules/
+dist/
+build/
+coverage/
+.turbo/
+*.tsbuildinfo
+
+# Environment and secrets
+.env
+.env.*
+!.env.example
+!*.env.example
+
+# Logs
+logs/
+*.log
+
+# Test artifacts
+playwright-report/
+test-results/
+e2e/.auth/
+
+# Editors and OS
+.idea/
+.vscode/*
+!.vscode/extensions.json
+.DS_Store
+
+# Claude Code local settings
+.claude/settings.local.json
