@@ -22,8 +22,9 @@
 - "**CLAUDE.md** kept short" — enforced at 150 lines by the hygiene check.
 - Plugin: "`tools/claude-plugin/ethernal-nest-react/` (`.claude-plugin/plugin.json`, `skills/<name>/SKILL.md`, `agents/`, `hooks/hooks.json`), loaded with `claude --plugin-dir tools/claude-plugin/ethernal-nest-react`, validated with `claude plugin validate`."
 - Hooks: "`PostToolUse` (`Edit|Write`, `*.ts`/`*.tsx`) → eslint --fix + prettier on the file; `PreToolUse` blocks (exit 2) edits to `.env`, `.env.*` except `*.example`, and `docs/client/**`; `Stop` reminds about `pnpm verify` when `apps/` or `packages/` have changes."
-- "UI language: English default; i18next infrastructure from the start (all strings through keys)" — the phase 0 SPA skeletons render **no user-facing strings**; i18n init ships with `packages/ui` in phase 6.
-- Every change to `main` goes through a PR (ruleset "main: pull requests only", squash merges). Conventional commits.
+- "UI language: English default; i18next infrastructure from the start (all strings through keys)" — the phase 0 SPA skeletons render **no user-facing strings** except the static `<title>` in `index.html`, which cannot go through i18n before React mounts and is asserted by the smoke tests; i18n init ships with `packages/ui` in phase 6.
+- Every change to `main` goes through a PR (ruleset "main: pull requests only", squash merges). Conventional commits with a **header of at most 100 characters** (`@commitlint/config-conventional`).
+- The client name never appears in repository text: guarded mechanically by the hygiene check reading the gitignored `docs/client/forbidden-terms.txt` (locally, pre-commit) and the `FORBIDDEN_TERMS` repository secret (CI). The check never prints the term itself.
 - "`.env.example` per application; all secrets only in env."
 - Repository text, code and documentation in English.
 - Versions are pinned through the pnpm catalog; **never `latest`** in package manifests or Dockerfiles (Prisma `latest` currently resolves to an rc).
@@ -36,7 +37,15 @@ Inputs the spec implies but that need explicit tests (each pinned to the owning 
 2. **Format-on-edit hook on a file it cannot format** (Task 10): a file with a syntax error mid-edit, a file that no longer exists, or one under `dist/`/`generated/` must never exit non-zero or block Claude.
 3. **gitleaks bootstrap under network or integrity failure** (Task 7): a tampered or missing checksum must fail loudly and leave no binary in the cache; a cached binary must work offline.
 4. **API startup with a bad `PORT`** (Task 2): `PORT=abc`, `PORT=0`, `PORT=70000` must fail fast with a message naming `PORT`; unknown variables must be ignored.
-5. **`/api` precedence over the SPA fallback behind Caddy** (Task 5 and Task 6): an unknown `/api/...` path must return the API's JSON 404, never `index.html`, otherwise cookies and CSRF assumptions of D11 silently break.
+5. **`/api` precedence over the SPA fallback behind Caddy** (Task 5b and Task 6): an unknown `/api/...` path must return the API's JSON 404, never `index.html`, otherwise cookies and CSRF assumptions of D11 silently break.
+
+## Execution notes (apply to every task)
+
+- **Journal as you go**: every task's Commit step also appends its row (date, task, approach, start, end, rework, notes) to `docs/efficiency/critical-path.md` and includes that file in the commit. Do not batch rows at the end.
+- **Claude CLI path**: `claude` is not on `PATH` in non-interactive shells on this machine; scripts use `"${CLAUDE_BIN:-claude}"` and verification steps call `~/.local/bin/claude` explicitly.
+- **Background servers in verification steps**: start them with `timeout <seconds> <command> &` (never bare `pnpm ... &` + `kill %1`, which leaves `node`/`vite` children holding 3001/5173 with `strictPort`).
+- **Commit headers**: at most 100 characters; the commit-msg hook (Task 8) rejects longer ones.
+- **Fallbacks**: when a step names a fallback (Jest ESM options, `pnpm deploy --legacy`, Mailpit healthcheck), the acceptance criterion stays the same and the fallback used is recorded in the journal row and the PR "Risks and notes".
 
 ---
 
@@ -48,14 +57,16 @@ Inputs the spec implies but that need explicit tests (each pinned to the owning 
 | 2 | NestJS API skeletons | `apps/api-admin`, `apps/api-driver` with reserved logger/Sentry slots | Jest unit (env) + e2e-spec (404 JSON) |
 | 3 | Vite SPA skeletons + MSW | `apps/web-admin`, `apps/web-driver` | Vitest render test; `vite build` |
 | 4 | Prisma `db` package | schema, `prisma.config.ts`, migration scripts | `prisma validate`; compose migrate exit 0 (Task 5) |
-| 5 | Compose + Dockerfiles + Caddy + smoke | `infra/**` | `infra/smoke.sh` and `infra/smoke.sh --full` |
+| 5a | Compose default profile: postgres, mailpit, migrate | `infra/docker-compose.yml`, `migrate.Dockerfile`, `.dockerignore`, `smoke.sh`, `predev` | `infra/smoke.sh`; negative check (bad password gates the apps) |
+| 5b | Compose `full` profile: APIs, SPAs behind Caddy | `api.Dockerfile`, `web.Dockerfile`, `Caddyfile`, `smoke.sh --full` | `infra/smoke.sh --full` |
 | 6 | Playwright skeleton | `e2e/**` | smoke specs against compose `full` |
-| 7 | Hygiene + gitleaks scripts | `tools/scripts/**`, `.gitleaks.toml` | vitest + bash tests |
-| 8 | Git hooks | husky, lint-staged, commitlint | commitlint pipe tests; pre-commit demo |
-| 9 | CI workflows + Dependabot | `.github/**` | actionlint; green checks on the PR |
-| 10 | Claude Code plugin skeleton + project settings | `tools/claude-plugin/**`, `.claude/settings.json` | vitest hook tests; `claude plugin validate --strict` |
+| 7 | Hygiene (documents, CLAUDE.md length, forbidden terms) + gitleaks scripts | `tools/scripts/**`, `.gitleaks.toml` | vitest + bash tests |
+| 8 | Git hooks | husky, lint-staged, commitlint | commitlint pipe tests; pre-commit demos |
+| 9 | CI workflows + Dependabot + `FORBIDDEN_TERMS` secret | `.github/**` | actionlint; green checks on the PR |
+| 10a | Plugin hooks | `tools/claude-plugin/ethernal-nest-react/{.claude-plugin,hooks}`, tests | 54 vitest tests; `claude plugin validate --strict` |
+| 10b | Plugin agent, skills, marketplace, project settings | `agents/`, `skills/`, `marketplace.json`, `.claude/settings.json` | `claude plugin validate --strict`; plugin loads from project settings |
 | 11 | Documentation | CLAUDE.md, README, PR template, architecture, ADR 0001/0002 | hygiene line limit; prettier |
-| 12 | `claude --chrome` check + ruleset required checks + journal | outside-repo steps | recorded outcomes |
+| 12 | `claude --chrome` check + ruleset required checks + human decisions | outside-repo steps | recorded outcomes |
 | 13 | PR | PR to `main` per spec section 13 | CI green, review |
 
 ---
@@ -63,14 +74,14 @@ Inputs the spec implies but that need explicit tests (each pinned to the owning 
 ### Task 1: Workspace root and `@tms/config`
 
 **Files:**
-- Create: `package.json`, `pnpm-workspace.yaml`, `.npmrc`, `.nvmrc`, `turbo.json`, `.editorconfig`, `.prettierrc.json`, `.prettierignore`
-- Modify: `.gitignore` (add `.cache/`, `generated/`, `infra/.env`)
+- Create: `package.json`, `pnpm-workspace.yaml`, `.npmrc`, `.nvmrc`, `turbo.json`, `.editorconfig`, `.prettierrc.json`, `.prettierignore`, `eslint.config.mjs` (root, for root-level files linted by lint-staged)
+- Modify: `.gitignore` (add `.cache/`, `generated/`, `tools/claude-plugin/tests/tmp/`)
 - Create: `packages/config/package.json`, `packages/config/tsconfig/base.json`, `packages/config/tsconfig/nest.json`, `packages/config/tsconfig/react.json`, `packages/config/tsconfig/react-node.json`, `packages/config/tsconfig/library.json`, `packages/config/eslint/base.mjs`, `packages/config/eslint/node.mjs`, `packages/config/eslint/react.mjs`, `packages/config/jest/create-config.mjs`, `packages/config/eslint.config.mjs`, `packages/config/vitest.config.mjs`
-- Test: `packages/config/test/eslint-node.test.mjs`
+- Test: `packages/config/test/eslint-node.test.mjs`, `packages/config/test/eslint-boundaries.test.mjs` with fixtures under `packages/config/test/fixtures/`
 
 **Interfaces:**
 - Consumes: nothing.
-- Produces: `nodeConfig({ tsconfigRootDir: string, allowedDomainSubpaths?: string[] }): FlatConfig[]`, `reactConfig({ tsconfigRootDir: string }): FlatConfig[]`, `createJestConfig({ rootDir: string }): JestConfig`, tsconfig presets `@tms/config/tsconfig/{base,nest,react,react-node,library}.json`, catalog entries used by every later task (`"typescript": "catalog:"` etc.).
+- Produces: `nodeConfig({ tsconfigRootDir: string, allowedDomainSubpaths?: string[], boundariesRootPath?: string }): FlatConfig[]`, `reactConfig({ tsconfigRootDir: string }): FlatConfig[]`, `createJestConfig({ rootDir: string }): JestConfig`, tsconfig presets `@tms/config/tsconfig/{base,nest,react,react-node,library}.json`, catalog entries used by every later task (`"typescript": "catalog:"` etc.).
 
 - [ ] **Step 1: Write the root workspace files**
 
@@ -95,7 +106,7 @@ Inputs the spec implies but that need explicit tests (each pinned to the owning 
     "hygiene": "node tools/scripts/check-hygiene.mjs && tools/scripts/gitleaks.sh git --redact --no-banner",
     "verify": "turbo run lint typecheck test build && pnpm format:check && pnpm hygiene",
     "compose": "docker compose -f infra/docker-compose.yml",
-    "claude": "claude --plugin-dir tools/claude-plugin/ethernal-nest-react"
+    "claude": "\"${CLAUDE_BIN:-claude}\" --plugin-dir tools/claude-plugin/ethernal-nest-react"
   },
   "devDependencies": {
     "@commitlint/cli": "catalog:",
@@ -238,7 +249,7 @@ trim_trailing_whitespace = false
 { "singleQuote": true, "printWidth": 100, "trailingComma": "all", "semi": true }
 ```
 
-`.prettierignore`:
+`.prettierignore` (the approved spec, plans and journals are prose reviewed by humans and must not be rewritten by the formatter):
 
 ```
 node_modules
@@ -248,10 +259,24 @@ coverage
 .cache
 pnpm-lock.yaml
 docs/client
+docs/superpowers
+docs/efficiency
 **/generated
 playwright-report
 test-results
 apps/*/public/mockServiceWorker.js
+```
+
+Root `eslint.config.mjs` (ESLint 10 looks for a config from the linted file's directory upward; root-level files such as `commitlint.config.mjs` need this one, while workspace packages keep their own):
+
+```js
+import { globalIgnores } from 'eslint/config';
+import { nodeConfig } from './packages/config/eslint/node.mjs';
+
+export default [
+  globalIgnores(['apps/**', 'packages/**', 'e2e/**', 'tools/**']),
+  ...nodeConfig({ tsconfigRootDir: import.meta.dirname }),
+];
 ```
 
 Append to `.gitignore`:
@@ -260,9 +285,7 @@ Append to `.gitignore`:
 # Tool caches and generated code
 .cache/
 **/generated/
-
-# Compose environment
-infra/.env
+tools/claude-plugin/tests/tmp/
 ```
 
 - [ ] **Step 2: Write the `packages/config` manifest, vitest config and the failing test**
@@ -368,7 +391,52 @@ describe('nodeConfig allowedDomainSubpaths', () => {
 });
 ```
 
-- [ ] **Step 3: Install and run the test to verify it fails**
+`packages/config/test/eslint-boundaries.test.mjs` (the dependency rule is verified now against fixtures, not discovered in phase 1). Fixtures: `test/fixtures/packages/domain/src/index.ts` (`export const domain = 1;`), `test/fixtures/packages/db/src/index.ts` (`export const db = 1;`), `test/fixtures/packages/contracts/src/index.ts` (`export const contracts = 1;`):
+
+```js
+import path from 'node:path';
+import { describe, expect, it } from 'vitest';
+import { ESLint } from 'eslint';
+import tseslint from 'typescript-eslint';
+import { nodeConfig } from '../eslint/node.mjs';
+
+const fixtures = path.join(import.meta.dirname, 'fixtures');
+
+async function lint(relFile, source) {
+  const eslint = new ESLint({
+    cwd: fixtures,
+    overrideConfigFile: true,
+    overrideConfig: [
+      ...nodeConfig({ tsconfigRootDir: fixtures, boundariesRootPath: fixtures }),
+      tseslint.configs.disableTypeChecked,
+    ],
+  });
+  const [result] = await eslint.lintText(source, { filePath: path.join(fixtures, relFile) });
+  return result.messages.map((m) => m.ruleId);
+}
+
+describe('dependency rule contracts <- db <- domain <- apps', () => {
+  it('forbids db importing domain', async () => {
+    const ids = await lint('packages/db/src/x.ts', `import { domain } from '../../domain/src/index';\nexport { domain };\n`);
+    expect(ids).toContain('boundaries/element-types');
+  });
+
+  it('allows domain importing db and contracts', async () => {
+    const ids = await lint(
+      'packages/domain/src/y.ts',
+      `import { db } from '../../db/src/index';\nimport { contracts } from '../../contracts/src/index';\nexport { db, contracts };\n`,
+    );
+    expect(ids).not.toContain('boundaries/element-types');
+  });
+
+  it('forbids contracts importing anything internal', async () => {
+    const ids = await lint('packages/contracts/src/z.ts', `import { db } from '../../db/src/index';\nexport { db };\n`);
+    expect(ids).toContain('boundaries/element-types');
+  });
+});
+```
+
+- [ ] **Step 3: Install and run the tests to verify they fail**
 
 Run: `pnpm install` (if pnpm reports `ERR_PNPM_IGNORED_BUILDS`, add every listed package to `allowBuilds` in `pnpm-workspace.yaml` and re-run; commit the final list), then `pnpm --filter @tms/config test`.
 
@@ -501,46 +569,51 @@ export const ignores = globalIgnores([
 
 /**
  * Dependency rule from the spec (section 3): contracts <- db <- domain <- apps.
- * Elements are matched against paths relative to the repository root, so the same
+ * eslint-plugin-boundaries v7: element patterns are folder patterns (no file part), and
+ * `capture` names one entry per wildcard. Paths are matched relative to `rootPath`, so the same
  * configuration works when eslint runs inside any workspace package.
+ *
+ * @param {string} rootPath repository root (or a fixtures root in tests)
  */
-export const boundariesConfig = {
-  plugins: { boundaries },
-  settings: {
-    'boundaries/root-path': repoRoot,
-    'boundaries/elements': [
-      { type: 'contracts', pattern: 'packages/contracts/**' },
-      { type: 'db', pattern: 'packages/db/**' },
-      { type: 'auth-core', pattern: 'packages/auth-core/**' },
-      { type: 'logger', pattern: 'packages/logger/**' },
-      { type: 'domain', pattern: 'packages/domain/**' },
-      { type: 'ui', pattern: 'packages/ui/**' },
-      { type: 'app', pattern: 'apps/*/**', capture: ['app'] },
-    ],
-  },
-  rules: {
-    'boundaries/element-types': [
-      'error',
-      {
-        default: 'disallow',
-        message: '${file.type} may not import ${dependency.type} (dependency rule contracts <- db <- domain <- apps)',
-        rules: [
-          { from: 'db', allow: ['contracts'] },
-          { from: 'auth-core', allow: ['contracts'] },
-          { from: 'logger', allow: ['contracts'] },
-          { from: 'domain', allow: ['contracts', 'db', 'auth-core', 'logger'] },
-          { from: 'ui', allow: ['contracts'] },
-          { from: 'app', allow: ['contracts', 'db', 'auth-core', 'logger', 'domain', 'ui'] },
-        ],
-      },
-    ],
-  },
-};
+export function boundariesConfig(rootPath) {
+  return {
+    plugins: { boundaries },
+    settings: {
+      'boundaries/root-path': rootPath,
+      'boundaries/elements': [
+        { type: 'contracts', pattern: 'packages/contracts' },
+        { type: 'db', pattern: 'packages/db' },
+        { type: 'auth-core', pattern: 'packages/auth-core' },
+        { type: 'logger', pattern: 'packages/logger' },
+        { type: 'domain', pattern: 'packages/domain' },
+        { type: 'ui', pattern: 'packages/ui' },
+        { type: 'app', pattern: 'apps/*', capture: ['app'] },
+      ],
+    },
+    rules: {
+      'boundaries/element-types': [
+        'error',
+        {
+          default: 'disallow',
+          message: '${file.type} may not import ${dependency.type} (dependency rule contracts <- db <- domain <- apps)',
+          rules: [
+            { from: 'db', allow: ['contracts'] },
+            { from: 'auth-core', allow: ['contracts'] },
+            { from: 'logger', allow: ['contracts'] },
+            { from: 'domain', allow: ['contracts', 'db', 'auth-core', 'logger'] },
+            { from: 'ui', allow: ['contracts'] },
+            { from: 'app', allow: ['contracts', 'db', 'auth-core', 'logger', 'domain', 'ui'] },
+          ],
+        },
+      ],
+    },
+  };
+}
 
 /**
- * @param {{ tsconfigRootDir: string }} options
+ * @param {{ tsconfigRootDir: string, boundariesRootPath?: string }} options
  */
-export function baseConfig({ tsconfigRootDir }) {
+export function baseConfig({ tsconfigRootDir, boundariesRootPath = repoRoot }) {
   return defineConfig([
     ignores,
     js.configs.recommended,
@@ -555,7 +628,7 @@ export function baseConfig({ tsconfigRootDir }) {
       },
     },
     { files: ['**/*.{js,mjs,cjs}'], extends: [tseslint.configs.disableTypeChecked] },
-    boundariesConfig,
+    boundariesConfig(boundariesRootPath),
     prettier,
   ]);
 }
@@ -571,13 +644,14 @@ import { baseConfig } from './base.mjs';
 /**
  * ESLint configuration for Node packages and NestJS apps.
  *
- * @param {{ tsconfigRootDir: string, allowedDomainSubpaths?: string[] }} options
+ * @param {{ tsconfigRootDir: string, allowedDomainSubpaths?: string[], boundariesRootPath?: string }} options
  *   `allowedDomainSubpaths` restricts imports of `@tms/domain` to the listed subpath
  *   exports (spec section 3: api-driver may import only checkin and shared).
+ *   `boundariesRootPath` overrides the repository root for the boundaries plugin (tests only).
  */
-export function nodeConfig({ tsconfigRootDir, allowedDomainSubpaths }) {
+export function nodeConfig({ tsconfigRootDir, allowedDomainSubpaths, boundariesRootPath }) {
   const config = [
-    ...baseConfig({ tsconfigRootDir }),
+    ...baseConfig({ tsconfigRootDir, boundariesRootPath }),
     { languageOptions: { globals: globals.node } },
   ];
   if (allowedDomainSubpaths) {
@@ -660,18 +734,18 @@ import { nodeConfig } from './eslint/node.mjs';
 export default nodeConfig({ tsconfigRootDir: import.meta.dirname });
 ```
 
-- [ ] **Step 5: Run the test to verify it passes**
+- [ ] **Step 5: Run the tests to verify they pass**
 
 Run: `pnpm --filter @tms/config test`
-Expected: 4 passed.
+Expected: 7 passed (4 import-restriction, 3 boundaries).
 
-Run: `pnpm --filter @tms/config lint`
-Expected: exit 0.
+Run: `pnpm --filter @tms/config lint && pnpm exec eslint eslint.config.mjs`
+Expected: exit 0 for both (the second proves root-level files have a config).
 
 - [ ] **Step 6: Commit**
 
 ```bash
-git add package.json pnpm-workspace.yaml pnpm-lock.yaml .npmrc .nvmrc turbo.json .editorconfig .prettierrc.json .prettierignore .gitignore packages/config
+git add package.json pnpm-workspace.yaml pnpm-lock.yaml .npmrc .nvmrc turbo.json .editorconfig .prettierrc.json .prettierignore .gitignore eslint.config.mjs packages/config docs/efficiency/critical-path.md
 git commit -m "build: bootstrap pnpm workspace, turborepo and shared config presets"
 ```
 
@@ -825,7 +899,8 @@ export default nodeConfig({
 `apps/api-admin/.env.example`:
 
 ```ini
-# Back-office API. Copy to .env for local overrides; never commit .env.
+# Back-office API. Variables are read from the process environment (e.g. `PORT=3005 pnpm dev`);
+# .env loading arrives with ConfigModule in phase 1. Never commit a real .env.
 NODE_ENV=development
 PORT=3001
 ```
@@ -964,8 +1039,8 @@ Expected before Step 3 files exist: FAIL (cannot find module). After: PASS, 2 su
 
 If Jest fails with `Must use import to load ES Module` or `Cannot use import statement outside a module` on `@nestjs/*`, confirm `NODE_OPTIONS=--experimental-vm-modules` is in the script; if it still fails, switch the ts-jest transform options in `createJestConfig` to `{ tsconfig: '<rootDir>/tsconfig.json', useESM: true }` and add `extensionsToTreatAsEsm: ['.ts']` — record the outcome in the journal.
 
-Run: `pnpm --filter @tms/api-admin build && PORT=3101 node apps/api-admin/dist/main.js & sleep 3; curl -s -o /dev/null -w '%{http_code}\n' http://localhost:3101/api/x; kill %1`
-Expected: `404`.
+Run: `pnpm --filter @tms/api-admin build && (PORT=3101 timeout 15 node apps/api-admin/dist/main.js &) && sleep 3 && curl -s -o /dev/null -w '%{http_code}\n' http://localhost:3101/api/x`
+Expected: `404` (the server exits by itself after 15 s).
 
 Run: `PORT=abc node apps/api-admin/dist/main.js; echo exit=$?`
 Expected: error message containing `Invalid environment: PORT` and a non-zero exit.
@@ -978,8 +1053,8 @@ Expected: exit 0.
 - [ ] **Step 6: Commit**
 
 ```bash
-git add apps/api-admin apps/api-driver pnpm-lock.yaml
-git commit -m "feat(api): add api-admin and api-driver NestJS skeletons with reserved logger and Sentry slots"
+git add apps/api-admin apps/api-driver pnpm-lock.yaml docs/efficiency/critical-path.md
+git commit -m "feat(api): add api-admin and api-driver skeletons with logger and Sentry slots"
 ```
 
 ---
@@ -1235,13 +1310,13 @@ Expected: 2 passed per app.
 Run: `pnpm --filter @tms/web-admin --filter @tms/web-driver build lint typecheck`
 Expected: exit 0, `apps/web-admin/dist/index.html` contains `<title>TMS Admin</title>`.
 
-Run (dev proxy check, API from Task 2 running on 3001): `pnpm --filter @tms/api-admin start & pnpm --filter @tms/web-admin dev & sleep 5; curl -s http://localhost:5173/api/nope; kill %1 %2`
-Expected: the Nest JSON 404 body (`"statusCode":404`), not HTML.
+Run (dev proxy check, API from Task 2 built): `(timeout 25 node apps/api-admin/dist/main.js &) && (cd apps/web-admin && timeout 25 pnpm exec vite &) && sleep 6 && curl -s http://localhost:5173/api/nope`
+Expected: the Nest JSON 404 body (`"statusCode":404`), not HTML; both processes exit by themselves.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add apps/web-admin apps/web-driver pnpm-lock.yaml
+git add apps/web-admin apps/web-driver pnpm-lock.yaml docs/efficiency/critical-path.md
 git commit -m "feat(web): add web-admin and web-driver Vite skeletons with MSW and dev API proxy"
 ```
 
@@ -1290,20 +1365,21 @@ git commit -m "feat(web): add web-admin and web-driver Vite skeletons with MSW a
 }
 ```
 
-`packages/db/prisma.config.ts` (Prisma 7 moved the datasource URL out of the schema; `dotenv/config` loads `packages/db/.env` locally, containers pass `DATABASE_URL` directly. The `env()` helper from `prisma/config` reads the variable lazily, so `prisma validate` works without a database while `migrate deploy` fails clearly when the variable is missing):
+`packages/db/prisma.config.ts` (Prisma 7 moved the datasource URL out of the schema; `dotenv/config` loads `packages/db/.env` locally, containers pass `DATABASE_URL` directly. Prisma's own `env()` helper throws **eagerly** at config load, which would break `prisma validate` in `turbo run test` wherever the variable is unset; `datasource` is optional for `validate`/`generate` and required for migration commands, so it is set only when the variable exists and Prisma itself reports the missing datasource for `migrate`):
 
 ```ts
 import 'dotenv/config';
-import { defineConfig, env } from 'prisma/config';
+import { defineConfig } from 'prisma/config';
+
+// DATABASE_URL: required by migrate/introspection commands, optional for validate/generate.
+const url = process.env['DATABASE_URL'];
 
 export default defineConfig({
   schema: 'prisma/schema.prisma',
   migrations: { path: 'prisma/migrations' },
-  datasource: { url: env('DATABASE_URL') },
+  ...(url ? { datasource: { url } } : {}),
 });
 ```
-
-If the installed Prisma does not export `env` from `prisma/config`, use `url: process.env['DATABASE_URL'] ?? 'postgresql://unset:unset@localhost:5432/unset'` and keep the acceptance criteria below.
 
 `packages/db/prisma/schema.prisma` (no models in phase 0; the generator block is configured now so phase 1 only adds models):
 
@@ -1357,7 +1433,7 @@ Run (deliberately **without** `packages/db/.env` and with `DATABASE_URL` unset, 
 Expected: `prisma validate` prints "The schema ... is valid"; lint and typecheck exit 0.
 
 Run: `env -u DATABASE_URL pnpm --filter @tms/db db:migrate:deploy; echo exit=$?`
-Expected: a clear error naming `DATABASE_URL`, non-zero exit (no silent connection to a default).
+Expected: Prisma's missing-datasource error, non-zero exit, no connection attempt to any default.
 
 Then `cp packages/db/.env.example packages/db/.env` for local work. (If the installed Prisma prints a config-loading error, run `pnpm --filter @tms/db exec prisma init --help` and align `prisma.config.ts` with the CLI's documented shape; the acceptance criteria are unchanged.)
 
@@ -1376,21 +1452,21 @@ Expected: `migrate deploy` reports no pending migrations and exits 0; `db:drift`
 - [ ] **Step 4: Commit**
 
 ```bash
-git add packages/db pnpm-lock.yaml
+git add packages/db pnpm-lock.yaml docs/efficiency/critical-path.md
 git commit -m "feat(db): add Prisma 7 package skeleton with migration and drift scripts"
 ```
 
 ---
 
-### Task 5: docker-compose, Dockerfiles, Caddy and smoke test
+### Task 5a: docker-compose default profile (postgres, mailpit, migrate) and smoke test
 
 **Files:**
-- Create: `infra/docker-compose.yml`, `infra/.env.example`, `infra/smoke.sh`, `infra/docker/api.Dockerfile`, `infra/docker/migrate.Dockerfile`, `infra/docker/web.Dockerfile`, `infra/docker/Caddyfile`, `.dockerignore`
+- Create: `infra/docker-compose.yml` (all services, `full` profile included; its images are built in Task 5b), `infra/.env.example`, `infra/smoke.sh`, `infra/docker/migrate.Dockerfile`, `.dockerignore`
 - Modify: `package.json` (root) — add `"predev": "pnpm --filter @tms/db db:migrate:deploy"` (D12; phase 1 changes it to `migrate dev` + permission sync)
 
 **Interfaces:**
-- Consumes: `@tms/api-admin`/`@tms/api-driver` `dist/main.js` on `PORT` (Task 2), `@tms/web-*` `dist/` (Task 3), `@tms/db` scripts (Task 4).
-- Produces: default profile = `postgres`, `mailpit`, `migrate`; profile `full` adds `api-admin`, `api-driver`, `caddy`. Admin origin `http://localhost:${CADDY_ADMIN_PORT:-8080}`, kiosk origin `http://localhost:${CADDY_KIOSK_PORT:-8081}`; `/api/*` forwarded to the matching API. `infra/smoke.sh [--full]` used by developers and CI. Profile `test` (shortened lockouts) is added in phase 2 when lockout exists.
+- Consumes: `@tms/db` scripts and `prisma.config.ts` (Task 4).
+- Produces: default profile = `postgres`, `mailpit`, `migrate`; `infra/smoke.sh [--full]` used by developers and CI (`--full` is exercised in Task 5b). Env file `infra/.env` (from `infra/.env.example`) read by compose because the project directory is the compose file's directory. Profile `test` (shortened lockouts) is added in phase 2 when lockout exists.
 
 - [ ] **Step 1: Write the compose file and env example**
 
@@ -1497,9 +1573,9 @@ volumes:
   pgdata:
 ```
 
-- [ ] **Step 2: Write the Dockerfiles and Caddyfile**
+- [ ] **Step 2: Write `.dockerignore` and the migrate image**
 
-`.dockerignore` (repository root; keeps client documents and caches out of every build context):
+`.dockerignore` (repository root; keeps client documents, secrets and caches out of every build context. Workspace packages such as `e2e/` and `tools/` stay in the context because `pnpm install --frozen-lockfile` needs every importer listed in the lockfile to exist):
 
 ```
 .git
@@ -1511,36 +1587,11 @@ node_modules
 **/generated
 .cache
 docs
-e2e
-tools/claude-plugin
 **/playwright-report
 **/test-results
 **/.env
 **/.env.*
 !**/.env.example
-```
-
-`infra/docker/api.Dockerfile` (one Dockerfile for both APIs, selected by `APP`):
-
-```dockerfile
-# syntax=docker/dockerfile:1.7
-ARG APP
-FROM node:24-bookworm-slim AS build
-ARG APP
-RUN npm install -g pnpm@12.5.1
-WORKDIR /repo
-COPY . .
-RUN --mount=type=cache,id=pnpm-store,target=/root/.local/share/pnpm/store \
-    pnpm install --frozen-lockfile --filter "@tms/${APP}..."
-RUN pnpm --filter "@tms/${APP}" build \
- && pnpm --filter "@tms/${APP}" deploy --legacy --prod /out
-
-FROM node:24-bookworm-slim AS runtime
-ENV NODE_ENV=production
-WORKDIR /app
-COPY --from=build /out .
-USER node
-CMD ["node", "dist/main.js"]
 ```
 
 `infra/docker/migrate.Dockerfile`:
@@ -1564,6 +1615,128 @@ COPY --from=build /out .
 USER node
 # Phase 1 appends the permission sync: node dist/sync-permissions.js
 CMD ["node_modules/.bin/prisma", "migrate", "deploy"]
+```
+
+- [ ] **Step 3: Write the smoke script**
+
+`infra/smoke.sh` (`chmod +x`):
+
+```bash
+#!/usr/bin/env bash
+# Smoke test for the compose stack. Usage: infra/smoke.sh [--full]
+# Default profile: postgres, mailpit, migrate. --full: also api-admin, api-driver, caddy.
+set -euo pipefail
+cd "$(dirname "${BASH_SOURCE[0]}")"
+[ -f .env ] && set -a && . ./.env && set +a
+
+compose() { docker compose -f docker-compose.yml "$@"; }
+fail() { echo "FAIL $*" >&2; exit 1; }
+
+wait_http() { # name url
+  for _ in $(seq 1 60); do
+    if curl -fsS -o /dev/null "$2"; then echo "ok   $1 reachable ($2)"; return 0; fi
+    sleep 2
+  done
+  fail "$1 not reachable at $2"
+}
+
+# 1. migrate is a one-shot service: it must exit 0.
+for _ in $(seq 1 60); do
+  cid=$(compose ps -aq migrate)
+  state=$(docker inspect --format '{{.State.Status}}:{{.State.ExitCode}}' "$cid" 2>/dev/null || echo missing)
+  case "$state" in
+    exited:0) echo "ok   migrate exited 0"; break ;;
+    exited:*) compose logs migrate; fail "migrate $state" ;;
+  esac
+  sleep 2
+done
+[ "$state" = "exited:0" ] || fail "migrate did not finish (state $state)"
+
+# 2. mailpit API answers.
+wait_http mailpit "http://localhost:${MAILPIT_UI_PORT:-8025}/api/v1/info"
+
+if [ "${1:-}" = "--full" ]; then
+  check_origin() { # name port title
+    wait_http "$1" "http://localhost:$2/"
+    curl -fsS "http://localhost:$2/" | grep -q "<title>$3</title>" || fail "$1: title '$3' not served"
+    echo "ok   $1 serves the SPA"
+    # Caddy starts before Nest has bound its port (depends_on = started), so retry until the API answers.
+    code=""
+    for _ in $(seq 1 30); do
+      code=$(curl -s -o /dev/null -w '%{http_code}' "http://localhost:$2/api/does-not-exist")
+      [ "$code" = "404" ] && break
+      sleep 2
+    done
+    [ "$code" = "404" ] || fail "$1: /api answered $code, expected 404 from the API"
+    body=$(curl -sS "http://localhost:$2/api/does-not-exist")
+    echo "$body" | grep -q '"statusCode":404' || fail "$1: /api did not reach the API (got: $body)"
+    echo "ok   $1 forwards /api to the API (JSON 404, not index.html)"
+  }
+  check_origin web-admin "${CADDY_ADMIN_PORT:-8080}" "TMS Admin"
+  check_origin web-driver "${CADDY_KIOSK_PORT:-8081}" "TMS Kiosk"
+fi
+
+echo "smoke: all checks passed"
+```
+
+- [ ] **Step 4: Run the default profile**
+
+```bash
+cp infra/.env.example infra/.env
+pnpm compose config -q && echo "compose file valid"
+pnpm compose up -d --build
+infra/smoke.sh
+```
+
+Expected: `ok   migrate exited 0`, `ok   mailpit reachable`, `smoke: all checks passed`. If the Mailpit healthcheck command is rejected, replace it with `['CMD', 'wget', '-qO-', 'http://localhost:8025/api/v1/info']` and record it.
+
+Negative check (migrations gate the database consumers): `pnpm compose down -v && POSTGRES_PASSWORD=wrong pnpm compose up -d postgres mailpit && pnpm compose run --rm -e DATABASE_URL=postgresql://tms:not-the-password@postgres:5432/tms migrate; echo exit=$?` → the migrate run exits non-zero with an authentication error, and `service_completed_successfully` in the compose file means the `full` profile apps would never start after such a failure. Then `pnpm compose down -v && pnpm compose up -d --build && infra/smoke.sh` to restore the stack.
+
+If `pnpm --filter @tms/db deploy --legacy` is rejected by pnpm 12, drop `--legacy` and add `injectWorkspacePackages: true` to `pnpm-workspace.yaml`; the acceptance criterion is unchanged.
+
+- [ ] **Step 5: Add `predev` and commit**
+
+Root `package.json` scripts: add `"predev": "pnpm --filter @tms/db db:migrate:deploy"` right before `"dev"`.
+
+```bash
+git add infra .dockerignore package.json docs/efficiency/critical-path.md
+git commit -m "build(infra): add compose default profile, migrate image and smoke test"
+```
+
+---
+
+### Task 5b: docker-compose `full` profile: API images, SPA images behind Caddy
+
+**Files:**
+- Create: `infra/docker/api.Dockerfile`, `infra/docker/web.Dockerfile`, `infra/docker/Caddyfile`
+
+**Interfaces:**
+- Consumes: compose services `api-admin`, `api-driver`, `caddy` already declared in Task 5a; `@tms/api-*` `dist/main.js` on `PORT` (Task 2); `@tms/web-*` `dist/` and titles (Task 3); `infra/smoke.sh --full` (Task 5a).
+- Produces: admin origin `http://localhost:${CADDY_ADMIN_PORT:-8080}`, kiosk origin `http://localhost:${CADDY_KIOSK_PORT:-8081}`; `/api/*` forwarded to the matching API (D11). Used by Task 6 (Playwright), the `e2e` CI job and Task 12.
+
+- [ ] **Step 1: Write the API image, the web image and the Caddyfile**
+
+`infra/docker/api.Dockerfile` (one Dockerfile for both APIs, selected by `APP`):
+
+```dockerfile
+# syntax=docker/dockerfile:1.7
+ARG APP
+FROM node:24-bookworm-slim AS build
+ARG APP
+RUN npm install -g pnpm@12.5.1
+WORKDIR /repo
+COPY . .
+RUN --mount=type=cache,id=pnpm-store,target=/root/.local/share/pnpm/store \
+    pnpm install --frozen-lockfile --filter "@tms/${APP}..."
+RUN pnpm --filter "@tms/${APP}" build \
+ && pnpm --filter "@tms/${APP}" deploy --legacy --prod /out
+
+FROM node:24-bookworm-slim AS runtime
+ENV NODE_ENV=production
+WORKDIR /app
+COPY --from=build /out .
+USER node
+CMD ["node", "dist/main.js"]
 ```
 
 `infra/docker/web.Dockerfile`:
@@ -1619,90 +1792,20 @@ COPY --from=build /repo/apps/web-driver/dist /srv/web-driver
 }
 ```
 
-- [ ] **Step 3: Write the smoke script**
-
-`infra/smoke.sh` (`chmod +x`):
-
-```bash
-#!/usr/bin/env bash
-# Smoke test for the compose stack. Usage: infra/smoke.sh [--full]
-# Default profile: postgres, mailpit, migrate. --full: also api-admin, api-driver, caddy.
-set -euo pipefail
-cd "$(dirname "${BASH_SOURCE[0]}")"
-[ -f .env ] && set -a && . ./.env && set +a
-
-compose() { docker compose -f docker-compose.yml "$@"; }
-fail() { echo "FAIL $*" >&2; exit 1; }
-
-wait_http() { # name url
-  for _ in $(seq 1 60); do
-    if curl -fsS -o /dev/null "$2"; then echo "ok   $1 reachable ($2)"; return 0; fi
-    sleep 2
-  done
-  fail "$1 not reachable at $2"
-}
-
-# 1. migrate is a one-shot service: it must exit 0.
-for _ in $(seq 1 60); do
-  cid=$(compose ps -aq migrate)
-  state=$(docker inspect --format '{{.State.Status}}:{{.State.ExitCode}}' "$cid" 2>/dev/null || echo missing)
-  case "$state" in
-    exited:0) echo "ok   migrate exited 0"; break ;;
-    exited:*) compose logs migrate; fail "migrate $state" ;;
-  esac
-  sleep 2
-done
-[ "$state" = "exited:0" ] || fail "migrate did not finish (state $state)"
-
-# 2. mailpit API answers.
-wait_http mailpit "http://localhost:${MAILPIT_UI_PORT:-8025}/api/v1/info"
-
-if [ "${1:-}" = "--full" ]; then
-  check_origin() { # name port title
-    wait_http "$1" "http://localhost:$2/"
-    curl -fsS "http://localhost:$2/" | grep -q "<title>$3</title>" || fail "$1: title '$3' not served"
-    echo "ok   $1 serves the SPA"
-    body=$(curl -sS "http://localhost:$2/api/does-not-exist")
-    echo "$body" | grep -q '"statusCode":404' || fail "$1: /api did not reach the API (got: $body)"
-    echo "ok   $1 forwards /api to the API (JSON 404, not index.html)"
-  }
-  check_origin web-admin "${CADDY_ADMIN_PORT:-8080}" "TMS Admin"
-  check_origin web-driver "${CADDY_KIOSK_PORT:-8081}" "TMS Kiosk"
-fi
-
-echo "smoke: all checks passed"
-```
-
-- [ ] **Step 4: Run the default profile**
-
-```bash
-cp infra/.env.example infra/.env
-pnpm compose config -q && echo "compose file valid"
-pnpm compose up -d --build
-infra/smoke.sh
-```
-
-Expected: `ok   migrate exited 0`, `ok   mailpit reachable`, `smoke: all checks passed`. If the Mailpit healthcheck command is rejected, replace it with `['CMD', 'wget', '-qO-', 'http://localhost:8025/api/v1/info']` and record it.
-
-Negative check (Review Focus: migrations gate the apps): `POSTGRES_PASSWORD=wrong pnpm compose --profile full up -d api-admin; sleep 20; pnpm compose ps -a` → `migrate` exited non-zero and `api-admin` never started (state `created`). Then `pnpm compose --profile full down`.
-
-- [ ] **Step 5: Run the full profile**
+- [ ] **Step 2: Run the full profile**
 
 ```bash
 pnpm compose --profile full up -d --build
 infra/smoke.sh --full
-pnpm compose --profile full down
 ```
 
-Expected: both origins serve their SPA titles and return the Nest JSON 404 under `/api`. If `pnpm deploy --legacy` is rejected by pnpm 12, drop `--legacy` and add `injectWorkspacePackages: true` to `pnpm-workspace.yaml`; the acceptance criterion is unchanged.
+Expected: both origins serve their SPA titles, `/api/does-not-exist` returns the Nest JSON 404 (after the retry loop), and a deep link such as `curl -s -o /dev/null -w '%{http_code}' http://localhost:8080/some/route` prints `200`. Leave the stack running for Task 6. If `pnpm --filter X deploy --legacy --prod` is rejected by pnpm 12, drop `--legacy` and add `injectWorkspacePackages: true` to `pnpm-workspace.yaml`; the acceptance criterion is unchanged.
 
-- [ ] **Step 6: Add `predev` and commit**
-
-Root `package.json` scripts: add `"predev": "pnpm --filter @tms/db db:migrate:deploy"` right before `"dev"`.
+- [ ] **Step 3: Commit**
 
 ```bash
-git add infra .dockerignore package.json
-git commit -m "build(infra): add docker-compose stack, multi-stage Dockerfiles, Caddy single-origin proxy and smoke test"
+git add infra/docker docs/efficiency/critical-path.md
+git commit -m "build(infra): add API and web images with Caddy single-origin proxy (full profile)"
 ```
 
 ---
@@ -1713,8 +1816,8 @@ git commit -m "build(infra): add docker-compose stack, multi-stage Dockerfiles, 
 - Create: `e2e/package.json`, `e2e/playwright.config.ts`, `e2e/tsconfig.json`, `e2e/eslint.config.mjs`, `e2e/tests/web-admin/smoke.spec.ts`, `e2e/tests/web-driver/smoke.spec.ts`, `e2e/README.md`
 
 **Interfaces:**
-- Consumes: compose `full` origins (Task 5), `data-testid="app-root"` and titles (Task 3).
-- Produces: `pnpm e2e` (root) runs both Playwright projects; env `E2E_ADMIN_URL`, `E2E_DRIVER_URL` default to the Caddy origins. Helpers (Mailpit, TOTP, seed API) are added by the QA lane when the flows exist.
+- Consumes: compose `full` origins (Task 5b), `data-testid="app-root"` and titles (Task 3).
+- Produces: `pnpm e2e` (root) runs both Playwright projects; env `E2E_ADMIN_URL`, `E2E_DRIVER_URL` default to the Caddy origins. `install-browsers` installs Chromium only (no OS packages, so no `sudo` prompt on a developer machine); CI installs with `--with-deps`. Helpers (Mailpit, TOTP, seed API) are added by the QA lane when the flows exist.
 
 - [ ] **Step 1: Write the package and config**
 
@@ -1730,7 +1833,7 @@ git commit -m "build(infra): add docker-compose stack, multi-stage Dockerfiles, 
   "scripts": {
     "e2e": "playwright test",
     "e2e:ui": "playwright test --ui",
-    "install-browsers": "playwright install --with-deps chromium",
+    "install-browsers": "playwright install chromium",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
@@ -1859,7 +1962,7 @@ Expected: 6 passed (3 per project); lint and typecheck exit 0. Leave the stack r
 - [ ] **Step 4: Commit**
 
 ```bash
-git add e2e pnpm-lock.yaml
+git add e2e pnpm-lock.yaml docs/efficiency/critical-path.md
 git commit -m "test(e2e): add Playwright skeleton with smoke specs against the compose full profile"
 ```
 
@@ -1869,19 +1972,78 @@ git commit -m "test(e2e): add Playwright skeleton with smoke specs against the c
 
 **Files:**
 - Create: `tools/scripts/package.json`, `tools/scripts/check-hygiene.mjs`, `tools/scripts/gitleaks.sh`, `tools/scripts/gitleaks.test.sh`, `tools/scripts/eslint.config.mjs`, `tools/scripts/vitest.config.mjs`, `.gitleaks.toml`
+- Create (local only, gitignored by `docs/client/*`): `docs/client/forbidden-terms.txt` — one term per line: every spelling of the client's name that appears in the client documents' file names and text (ASCII and diacritic variants); Stefan owns this list.
+- Modify: `docs/client/README.md` — one paragraph describing `forbidden-terms.txt` and the `FORBIDDEN_TERMS` CI secret (this is the last edit to that folder before Task 10a's hook and Task 10b's deny rule protect it).
 - Test: `tools/scripts/check-hygiene.test.mjs`
 
 **Interfaces:**
-- Consumes: `git ls-files`, root `CLAUDE.md` (Task 11; the check tolerates a missing file until then).
-- Produces: `node tools/scripts/check-hygiene.mjs` (exit 1 with one line per problem), `tools/scripts/gitleaks.sh <gitleaks args>` (pinned 8.30.1, checksum-verified, cached in `.cache/gitleaks/`), `findForbiddenDocuments(files: string[]): string[]`, `claudeMdLineCount(text: string): number`, `runHygiene({ trackedFiles, claudeMd }): string[]`. Used by root `pnpm hygiene`, the pre-commit hook (Task 8) and CI (Task 9).
+- Consumes: `git ls-files`, `git grep`, root `CLAUDE.md` (Task 11; the check tolerates a missing file until then), `docs/client/forbidden-terms.txt` or env `FORBIDDEN_TERMS` (newline- or comma-separated).
+- Produces: `node tools/scripts/check-hygiene.mjs [--staged]` (exit 1 with one line per problem; `--staged` greps the index for the pre-commit hook), `tools/scripts/gitleaks.sh <gitleaks args>` (pinned 8.30.1, checksum-verified, cached in `.cache/gitleaks/`), `findForbiddenDocuments(files: string[]): string[]`, `claudeMdLineCount(text: string): number`, `parseForbiddenTerms(text: string): string[]`, `gitGrepForbidden({ repoRoot, terms, staged }): string[]` (returns `file:line`, never the matched text), `runHygiene({ trackedFiles, claudeMd, forbiddenHits }): string[]`. Used by root `pnpm hygiene`, the pre-commit hook (Task 8) and CI (Task 9).
 
 - [ ] **Step 1: Write the failing hygiene tests**
 
 `tools/scripts/check-hygiene.test.mjs`:
 
 ```js
+import { execFileSync } from 'node:child_process';
+import { mkdtempSync, writeFileSync } from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { CLAUDE_MD_MAX_LINES, findForbiddenDocuments, runHygiene } from './check-hygiene.mjs';
+import {
+  CLAUDE_MD_MAX_LINES,
+  findForbiddenDocuments,
+  gitGrepForbidden,
+  parseForbiddenTerms,
+  runHygiene,
+} from './check-hygiene.mjs';
+
+describe('parseForbiddenTerms', () => {
+  it('splits on newlines and commas, trims, drops blanks and comments', () => {
+    expect(parseForbiddenTerms('# client names\nAcme\n acme corp ,ACME-X\n\n')).toEqual(['Acme', 'acme corp', 'ACME-X']);
+  });
+  it('returns an empty list for empty input', () => {
+    expect(parseForbiddenTerms('')).toEqual([]);
+  });
+});
+
+describe('gitGrepForbidden', () => {
+  function tempRepo() {
+    const dir = mkdtempSync(path.join(os.tmpdir(), 'hyg-'));
+    const git = (...args) => execFileSync('git', args, { cwd: dir, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
+    git('init', '-q');
+    git('config', 'user.email', 't@example.com');
+    git('config', 'user.name', 't');
+    return { dir, git };
+  }
+
+  it('reports file:line of a tracked hit, case-insensitively and word-bounded, without the text', () => {
+    const { dir, git } = tempRepo();
+    writeFileSync(path.join(dir, 'a.md'), 'first line\nBuilt for ZORGCORP in 2026\nzorgcorporation is a different word\n');
+    git('add', 'a.md');
+    git('commit', '-qm', 'x');
+    const hits = gitGrepForbidden({ repoRoot: dir, terms: ['zorgcorp'], staged: false });
+    expect(hits).toEqual(['a.md:2']);
+  });
+
+  it('ignores docs/client and returns nothing when nothing matches', () => {
+    const { dir, git } = tempRepo();
+    writeFileSync(path.join(dir, 'clean.md'), 'nothing here\n');
+    execFileSync('mkdir', ['-p', path.join(dir, 'docs/client')]);
+    writeFileSync(path.join(dir, 'docs/client/README.md'), 'zorgcorp appears here legitimately\n');
+    git('add', '.');
+    git('commit', '-qm', 'x');
+    expect(gitGrepForbidden({ repoRoot: dir, terms: ['zorgcorp'], staged: false })).toEqual([]);
+  });
+
+  it('greps staged content with staged: true and skips git entirely without terms', () => {
+    const { dir, git } = tempRepo();
+    writeFileSync(path.join(dir, 'b.ts'), '// zorgcorp\n');
+    git('add', 'b.ts');
+    expect(gitGrepForbidden({ repoRoot: dir, terms: ['zorgcorp'], staged: true })).toEqual(['b.ts:1']);
+    expect(gitGrepForbidden({ repoRoot: '/nonexistent', terms: [], staged: true })).toEqual([]);
+  });
+});
 
 describe('findForbiddenDocuments', () => {
   it('flags pdf, pptx and docx outside docs/client regardless of case', () => {
@@ -1919,6 +2081,14 @@ describe('runHygiene', () => {
     expect(problems).toEqual([
       'client-type document outside docs/client/: x.pdf',
       'client-type document outside docs/client/: y.docx',
+    ]);
+  });
+
+  it('reports forbidden-term hits by location only', () => {
+    const problems = runHygiene({ trackedFiles: [], claudeMd: '', forbiddenHits: ['README.md:12', 'docs/adr/0001.md:3'] });
+    expect(problems).toEqual([
+      'forbidden term (client name) at README.md:12',
+      'forbidden term (client name) at docs/adr/0001.md:3',
     ]);
   });
 });
@@ -1968,9 +2138,12 @@ export default nodeConfig({ tsconfigRootDir: import.meta.dirname });
 ```js
 #!/usr/bin/env node
 /**
- * Repository hygiene (spec section 13, CI):
- *  - no *.pdf|*.pptx|*.docx tracked outside docs/client/ (public repository, client documents),
- *  - CLAUDE.md stays short (spec section 14).
+ * Repository hygiene (spec sections 13 and 14; public repository):
+ *  - no *.pdf|*.pptx|*.docx tracked outside docs/client/,
+ *  - CLAUDE.md stays short,
+ *  - no forbidden term (the client's name) in tracked text; terms come from the gitignored
+ *    docs/client/forbidden-terms.txt and/or the FORBIDDEN_TERMS env (CI secret). The term itself
+ *    is never printed. `--staged` greps the index instead of the working tree (pre-commit).
  * Exit 1 with one line per problem.
  */
 import { execFileSync } from 'node:child_process';
@@ -1981,6 +2154,7 @@ import { fileURLToPath } from 'node:url';
 export const FORBIDDEN_DOCUMENT_RE = /\.(pdf|pptx|docx)$/i;
 export const CLIENT_DOCS_DIR = 'docs/client/';
 export const CLAUDE_MD_MAX_LINES = 150;
+export const FORBIDDEN_TERMS_FILE = 'docs/client/forbidden-terms.txt';
 
 /** @param {string[]} trackedFiles */
 export function findForbiddenDocuments(trackedFiles) {
@@ -1992,8 +2166,39 @@ export function claudeMdLineCount(text) {
   return text === '' ? 0 : text.replace(/\n$/, '').split('\n').length;
 }
 
-/** @param {{ trackedFiles: string[], claudeMd: string | null }} input */
-export function runHygiene({ trackedFiles, claudeMd }) {
+/** @param {string} text newline- or comma-separated terms; `#` starts a comment line */
+export function parseForbiddenTerms(text) {
+  return [...new Set(text.split(/[\n,]/).map((t) => t.trim()).filter((t) => t && !t.startsWith('#')))];
+}
+
+/**
+ * Word-bounded, case-insensitive fixed-string search over tracked text (or the index).
+ * @param {{ repoRoot: string, terms: string[], staged: boolean }} input
+ * @returns {string[]} `file:line` locations, never the matched text
+ */
+export function gitGrepForbidden({ repoRoot, terms, staged }) {
+  if (terms.length === 0) return [];
+  const args = ['grep', '-I', '-n', '-i', '-w', '-F'];
+  if (staged) args.push('--cached');
+  for (const term of terms) args.push('-e', term);
+  args.push('--', '.', `:(exclude)${CLIENT_DOCS_DIR}`);
+  try {
+    const out = execFileSync('git', args, { cwd: repoRoot, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
+    return out
+      .split('\n')
+      .filter(Boolean)
+      .map((line) => {
+        const [file, lineNo] = line.split(':');
+        return `${file}:${lineNo}`;
+      });
+  } catch (error) {
+    if (error && error.status === 1) return []; // git grep: no match
+    throw error;
+  }
+}
+
+/** @param {{ trackedFiles: string[], claudeMd: string | null, forbiddenHits?: string[] }} input */
+export function runHygiene({ trackedFiles, claudeMd, forbiddenHits = [] }) {
   const problems = findForbiddenDocuments(trackedFiles).map(
     (f) => `client-type document outside docs/client/: ${f}`,
   );
@@ -2003,20 +2208,32 @@ export function runHygiene({ trackedFiles, claudeMd }) {
       problems.push(`CLAUDE.md has ${lines} lines (max ${CLAUDE_MD_MAX_LINES}); move detail into docs/`);
     }
   }
+  for (const hit of forbiddenHits) problems.push(`forbidden term (client name) at ${hit}`);
   return problems;
 }
 
 function main() {
+  const staged = process.argv.includes('--staged');
   const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
   const trackedFiles = execFileSync('git', ['ls-files', '-z'], { cwd: repoRoot, encoding: 'utf8' })
     .split('\0')
     .filter(Boolean);
   const claudeMdPath = path.join(repoRoot, 'CLAUDE.md');
   const claudeMd = existsSync(claudeMdPath) ? readFileSync(claudeMdPath, 'utf8') : null;
-  const problems = runHygiene({ trackedFiles, claudeMd });
+
+  const termsPath = path.join(repoRoot, FORBIDDEN_TERMS_FILE);
+  const terms = parseForbiddenTerms(
+    [process.env['FORBIDDEN_TERMS'] ?? '', existsSync(termsPath) ? readFileSync(termsPath, 'utf8') : ''].join('\n'),
+  );
+  if (terms.length === 0) {
+    console.warn(`hygiene: forbidden-terms check skipped (no ${FORBIDDEN_TERMS_FILE} and no FORBIDDEN_TERMS)`);
+  }
+  const forbiddenHits = gitGrepForbidden({ repoRoot, terms, staged });
+
+  const problems = runHygiene({ trackedFiles, claudeMd, forbiddenHits });
   for (const p of problems) console.error(`hygiene: ${p}`);
   if (problems.length > 0) process.exit(1);
-  console.log(`hygiene: ok (${trackedFiles.length} tracked files checked)`);
+  console.log(`hygiene: ok (${trackedFiles.length} tracked files, ${terms.length} forbidden terms${staged ? ', staged' : ''})`);
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
@@ -2027,10 +2244,15 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
 - [ ] **Step 3: Run the hygiene tests**
 
 Run: `pnpm install && pnpm --filter @tms/scripts exec vitest run`
-Expected: 8 passed.
+Expected: 13 passed (2 parse, 3 git grep, 3 documents, 5 runHygiene).
+
+Create `docs/client/forbidden-terms.txt` (gitignored; the client name spellings, one per line) and add the paragraph to `docs/client/README.md`. Then:
 
 Run: `node tools/scripts/check-hygiene.mjs; echo exit=$?`
-Expected: `hygiene: ok (...)`, exit 0 (client PDFs are untracked).
+Expected: `hygiene: ok (... tracked files, N forbidden terms)`, exit 0 — the tracked text is clean today (verified by the critic pass with a word-bounded grep).
+
+Run: `printf 'the client is %s\n' "$(head -1 docs/client/forbidden-terms.txt)" > /tmp/leak.md && cp /tmp/leak.md docs/leak-demo.md && git add docs/leak-demo.md && node tools/scripts/check-hygiene.mjs --staged; echo exit=$?; git rm -q --cached docs/leak-demo.md && rm docs/leak-demo.md /tmp/leak.md`
+Expected: `hygiene: forbidden term (client name) at docs/leak-demo.md:1`, exit 1, and the term itself does not appear in the output.
 
 - [ ] **Step 4: Write the gitleaks wrapper and its test**
 
@@ -2078,18 +2300,24 @@ exec "$BIN" "$@"
 
 ```bash
 #!/usr/bin/env bash
-# Tests for gitleaks.sh: happy path, offline reuse, tampered checksum.
+# Tests for gitleaks.sh: install (from the repo cache when present, otherwise download), offline
+# reuse, tampered checksum. Runs inside `turbo run test`, so it avoids the network whenever the
+# repository cache (.cache/gitleaks/8.30.1) already holds the binary.
 set -euo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT="$(cd "$HERE/../.." && pwd)"
 SCRIPT="$HERE/gitleaks.sh"
 work="$(mktemp -d)"; trap 'rm -rf "$work"' EXIT
 pass() { echo "ok   $1"; }
 fail() { echo "FAIL $1" >&2; exit 1; }
 
-# 1. happy path: downloads, verifies and runs
+# 1. install path: seed from the repository cache if present (no network), else download + verify
+if [ -x "$ROOT/.cache/gitleaks/8.30.1/gitleaks" ]; then
+  mkdir -p "$work/cache" && cp "$ROOT/.cache/gitleaks/8.30.1/gitleaks" "$work/cache/gitleaks"
+fi
 out="$(GITLEAKS_CACHE_DIR="$work/cache" "$SCRIPT" version)"
 [ "$out" = "8.30.1" ] || fail "expected version 8.30.1, got '$out'"
-pass "downloads and runs the pinned version"
+pass "installs and runs the pinned version"
 
 # 2. cached binary is reused without network
 out="$(GITLEAKS_CACHE_DIR="$work/cache" GITLEAKS_BASE_URL="http://127.0.0.1:9/unreachable" "$SCRIPT" version)"
@@ -2109,26 +2337,22 @@ grep -q "checksum verification FAILED" "$work/err" || fail "no checksum error me
 pass "refuses a tampered checksum and caches nothing"
 ```
 
-`.gitleaks.toml` (repository root):
+`.gitleaks.toml` (repository root; default rules only. No path allowlist for `.env.example`: a real value pasted into an example file is the most likely leak, so it must trip the scan. A future false positive gets a `[[allowlists]]` entry with `regexTarget = "match"` for that specific placeholder, never a path):
 
 ```toml
 title = "TMS platform gitleaks config"
 
 [extend]
 useDefault = true
-
-[allowlist]
-description = "Example env files hold placeholders, not secrets"
-paths = ['''(^|/)\.env\.example$''', '''\.env\.[a-z]+\.example$''']
 ```
 
 - [ ] **Step 5: Run the gitleaks tests and a repository scan**
 
-Run: `bash tools/scripts/gitleaks.test.sh`
-Expected: three `ok` lines. (Test 3 requires `uname -m` = x86_64; on arm64 adjust the asset name in the test to `arm64`.)
-
-Run: `tools/scripts/gitleaks.sh git --redact --no-banner; echo exit=$?`
+Run: `tools/scripts/gitleaks.sh git --redact --no-banner; echo exit=$?` (first run downloads and verifies the binary into `.cache/gitleaks/8.30.1/`)
 Expected: `no leaks found`, exit 0.
+
+Run: `bash tools/scripts/gitleaks.test.sh`
+Expected: three `ok` lines, no download (the cache is seeded). (Test 3 requires `uname -m` = x86_64; on arm64 adjust the asset name in the test to `arm64`.)
 
 Run: `pnpm --filter @tms/scripts test lint`
 Expected: exit 0.
@@ -2136,8 +2360,8 @@ Expected: exit 0.
 - [ ] **Step 6: Commit**
 
 ```bash
-git add tools/scripts .gitleaks.toml pnpm-lock.yaml
-git commit -m "build(tooling): add hygiene check and pinned checksum-verified gitleaks wrapper"
+git add tools/scripts .gitleaks.toml docs/client/README.md pnpm-lock.yaml docs/efficiency/critical-path.md
+git commit -m "build(tooling): add hygiene checks and pinned checksum-verified gitleaks wrapper"
 ```
 
 ---
@@ -2169,6 +2393,7 @@ export default {
 
 ```sh
 pnpm exec lint-staged
+node tools/scripts/check-hygiene.mjs --staged
 tools/scripts/gitleaks.sh git --pre-commit --staged --redact --no-banner
 ```
 
@@ -2196,27 +2421,40 @@ Commit message rules:
 ```bash
 echo "bad message" | pnpm exec commitlint; echo "exit=$?"          # expected: exit=1, subject-empty/type-empty errors
 echo "feat(api): add env schema" | pnpm exec commitlint; echo "exit=$?"   # expected: exit=0
+printf 'feat: %s\n' "$(printf 'x%.0s' $(seq 1 100))" | pnpm exec commitlint; echo "exit=$?"   # expected: exit=1, header-max-length
 ```
 
-Secret detection in pre-commit (a fake GitHub token matching the default `github-pat` rule):
+Root-level files have an ESLint config (Task 1): `pnpm exec eslint commitlint.config.mjs; echo "exit=$?"` → `exit=0`.
+
+Secret detection in pre-commit (a fake GitHub token: the default `github-pat` rule needs `ghp_` + 36 alphanumerics **with entropy ≥ 3**, so use random hex, not a repeated character):
 
 ```bash
-printf 'const token = "ghp_%s";\n' "$(printf 'A%.0s' $(seq 1 36))" > tools/scripts/leak-demo.mjs
+printf 'export const token = "ghp_%s";\n' "$(openssl rand -hex 18)" > tools/scripts/leak-demo.mjs
 git add tools/scripts/leak-demo.mjs
 git commit -m "test: leak demo"; echo "exit=$?"      # expected: gitleaks reports 1 leak, exit != 0
 git reset -q tools/scripts/leak-demo.mjs && rm tools/scripts/leak-demo.mjs
 ```
 
-Formatting in pre-commit: stage a `.ts` file with `const  x=1` spacing inside `apps/api-admin/src/`, commit with a valid message, and confirm the committed content is prettier-formatted (`git show HEAD:<file>`); then `git reset --soft HEAD~1` and drop the file. Record both outcomes in the journal.
+Formatting in pre-commit (the file must be lint-clean apart from formatting, otherwise `eslint --fix` fails on an unfixable rule and the commit is rejected for the wrong reason):
+
+```bash
+printf 'export const  x=1\n' > apps/api-admin/src/format-demo.ts
+git add apps/api-admin/src/format-demo.ts
+git commit -m "test: format demo"; echo "exit=$?"    # expected: exit=0
+git show HEAD:apps/api-admin/src/format-demo.ts      # expected: export const x = 1;
+git reset -q --soft HEAD~1 && git reset -q apps/api-admin/src/format-demo.ts && rm apps/api-admin/src/format-demo.ts
+```
+
+Record all outcomes in the journal row.
 
 - [ ] **Step 3: Commit**
 
 ```bash
-git add .husky commitlint.config.mjs package.json
-git commit -m "build(hooks): add husky pre-commit (lint-staged + gitleaks), commit-msg (commitlint) and pre-push hooks"
+git add .husky commitlint.config.mjs package.json docs/efficiency/critical-path.md
+git commit -m "build(hooks): add husky pre-commit, commit-msg and pre-push hooks"
 ```
 
-Expected: this commit itself passes all three hooks.
+Expected: this commit itself passes all three hooks (header 62 characters).
 
 ---
 
@@ -2268,6 +2506,8 @@ jobs:
   hygiene:
     name: hygiene
     runs-on: ubuntu-latest
+    env:
+      FORBIDDEN_TERMS: ${{ secrets.FORBIDDEN_TERMS }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -2275,7 +2515,12 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
-      - name: No client-type documents outside docs/client, CLAUDE.md within limit
+      - name: FORBIDDEN_TERMS secret must exist (the client name must never reach the public repo)
+        run: |
+          if [ -z "$FORBIDDEN_TERMS" ]; then
+            echo "::error::Repository secret FORBIDDEN_TERMS is not set"; exit 1
+          fi
+      - name: No client-type documents outside docs/client, CLAUDE.md within limit, no forbidden terms
         run: node tools/scripts/check-hygiene.mjs
       - name: gitleaks over the full history
         run: tools/scripts/gitleaks.sh git --redact --no-banner
@@ -2348,7 +2593,8 @@ jobs:
           pnpm compose --profile full up -d --build
       - name: Smoke test the stack
         run: infra/smoke.sh --full
-      - run: pnpm --filter @tms/e2e install-browsers
+      - name: Install Chromium with OS dependencies
+        run: pnpm --filter @tms/e2e exec playwright install --with-deps chromium
       - name: Playwright
         run: pnpm e2e
         env:
@@ -2395,15 +2641,18 @@ updates:
       interval: weekly
 ```
 
-- [ ] **Step 4: Lint the workflows locally**
+- [ ] **Step 4: Lint the workflows locally and set the repository secret**
 
 Run: `docker run --rm -v "$PWD:/repo" -w /repo rhysd/actionlint:latest -color`
 Expected: no output, exit 0.
 
+Run: `gh secret set FORBIDDEN_TERMS --repo Stefan-Ethernal/tms-platform < docs/client/forbidden-terms.txt && gh secret list --repo Stefan-Ethernal/tms-platform`
+Expected: `FORBIDDEN_TERMS` listed (value masked in every log; GitHub Actions also redacts it if it ever appears in output).
+
 - [ ] **Step 5: Commit and push, then watch the checks**
 
 ```bash
-git add .github
+git add .github docs/efficiency/critical-path.md
 git commit -m "ci: add verify, hygiene, db-drift and e2e workflows with Dependabot"
 git push -u origin feat/phase-0-bootstrap
 gh run list --branch feat/phase-0-bootstrap --limit 5
@@ -2415,19 +2664,18 @@ Expected: `verify`, `hygiene`, `db-drift` and `e2e` all succeed. Fix and re-push
 
 ---
 
-### Task 10: Claude Code plugin skeleton and project settings
+### Task 10a: Claude Code plugin hooks (protect, format, verify reminder)
 
 **Files:**
-- Create: `tools/claude-plugin/package.json`, `tools/claude-plugin/vitest.config.mjs`, `tools/claude-plugin/eslint.config.mjs`, `tools/claude-plugin/README.md`
-- Create (the plugin proper, kept free of tests and package files so it stays publishable): `tools/claude-plugin/ethernal-nest-react/.claude-plugin/plugin.json`, `tools/claude-plugin/ethernal-nest-react/README.md`, `tools/claude-plugin/ethernal-nest-react/hooks/hooks.json`, `tools/claude-plugin/ethernal-nest-react/hooks/lib/stdin.mjs`, `tools/claude-plugin/ethernal-nest-react/hooks/lib/protect.mjs`, `tools/claude-plugin/ethernal-nest-react/hooks/lib/format.mjs`, `tools/claude-plugin/ethernal-nest-react/hooks/lib/reminder.mjs`, `tools/claude-plugin/ethernal-nest-react/hooks/protect-files.mjs`, `tools/claude-plugin/ethernal-nest-react/hooks/format-on-edit.mjs`, `tools/claude-plugin/ethernal-nest-react/hooks/verify-reminder.mjs`, `tools/claude-plugin/ethernal-nest-react/agents/plan-critic.md`, `tools/claude-plugin/ethernal-nest-react/skills/verify/SKILL.md`, `tools/claude-plugin/ethernal-nest-react/skills/pr/SKILL.md`
-- Create: `.claude/settings.json`
-- Test: `tools/claude-plugin/tests/protect.test.mjs`, `tools/claude-plugin/tests/format.test.mjs`, `tools/claude-plugin/tests/reminder.test.mjs`, `tools/claude-plugin/tests/hooks-cli.test.mjs`
+- Create: `tools/claude-plugin/package.json`, `tools/claude-plugin/vitest.config.mjs`, `tools/claude-plugin/eslint.config.mjs`
+- Create (the plugin proper, kept free of tests and package files so it stays publishable): `tools/claude-plugin/ethernal-nest-react/.claude-plugin/plugin.json`, `tools/claude-plugin/ethernal-nest-react/hooks/hooks.json`, `tools/claude-plugin/ethernal-nest-react/hooks/lib/stdin.mjs`, `tools/claude-plugin/ethernal-nest-react/hooks/lib/project-root.mjs`, `tools/claude-plugin/ethernal-nest-react/hooks/lib/protect.mjs`, `tools/claude-plugin/ethernal-nest-react/hooks/lib/format.mjs`, `tools/claude-plugin/ethernal-nest-react/hooks/lib/reminder.mjs`, `tools/claude-plugin/ethernal-nest-react/hooks/protect-files.mjs`, `tools/claude-plugin/ethernal-nest-react/hooks/format-on-edit.mjs`, `tools/claude-plugin/ethernal-nest-react/hooks/verify-reminder.mjs`
+- Test: `tools/claude-plugin/tests/protect.test.mjs`, `tools/claude-plugin/tests/format.test.mjs`, `tools/claude-plugin/tests/reminder.test.mjs`, `tools/claude-plugin/tests/hooks-cli.test.mjs` (writes temporary files under `tools/claude-plugin/tests/tmp/`, gitignored in Task 1)
 
 **Interfaces:**
-- Consumes: root `pnpm verify` (Task 1), `.github/pull_request_template.md` (Task 11; the `pr` skill reads it).
-- Produces: `classifyEdit(filePath: string | undefined, cwd: string): { blocked: boolean; reason?: string }`, `shouldFormat(relPath: string | undefined): boolean`, `shouldRemind({ porcelain: string; stopHookActive: boolean }): boolean`; the `plan-critic` agent used from this phase on; skills invoked as `/ethernal-nest-react:verify` and `/ethernal-nest-react:pr`. The plugin is loaded with `pnpm claude` (`claude --plugin-dir tools/claude-plugin/ethernal-nest-react`). Skills `new-module`, `add-permission`, `db-migration`, `new-admin-page`, `e2e-scenario`, `docs-sync` and agents `security-reviewer`, `qa-e2e`, `architecture-reviewer`, `docs-writer` are added in the phase that first needs them, each written with `superpowers:writing-skills`.
+- Consumes: root `pnpm exec eslint` / `pnpm exec prettier` (Task 1), `.gitignore` entry for `tests/tmp/` (Task 1).
+- Produces: `classifyEdit(filePath: string | undefined, projectRoot: string): { blocked: boolean; reason?: string }`, `shouldFormat(relPath: string | undefined): boolean`, `shouldRemind({ porcelain: string; stopHookActive: boolean }): boolean`, `REMINDER: string`; hook executables driven over stdin. Task 10b adds the agent, skills, marketplace and project settings around them.
 
-**Documented facts this task relies on** (verified 2026-09-23 against code.claude.com/docs): `hooks.json` is `{"hooks": {"<Event>": [{"matcher": "...", "hooks": [{"type": "command", "command": "..."}]}]}}`; `${CLAUDE_PLUGIN_ROOT}` is the plugin's absolute path; hook stdin JSON carries `tool_name`, `tool_input.file_path`, `cwd`, and for Stop `stop_hook_active`; a PreToolUse hook blocks with exit code 2 and stderr as the reason; a Stop hook prevents stopping with stdout `{"decision":"block","reason":"..."}` (a non-blocking "systemMessage" is not documented for Stop, so the reminder is a one-shot block guarded by `stop_hook_active`); agent frontmatter accepts `name`, `description`, `tools` (comma-separated), `model: inherit`; permission rules `Edit(<glob>)` also cover Write and NotebookEdit and are relative to the project directory; `**` crosses directories. A marketplace pointing at a directory inside the repo is not documented for project settings, so auto-loading is deferred to the end of the POC (spec: "publishable as a private marketplace at the end").
+**Documented facts this task relies on** (verified 2026-09-23 against code.claude.com/docs, corrected by the critic pass): `hooks.json` is `{"hooks": {"<Event>": [{"matcher": "...", "hooks": [{"type": "command", "command": "...", "timeout": n}]}]}}`; `${CLAUDE_PLUGIN_ROOT}` is the plugin's absolute path and `CLAUDE_PROJECT_DIR` is the project root where the session started (both exported to hook processes; `cwd` in the payload can be a subdirectory, so paths are resolved against `CLAUDE_PROJECT_DIR`); hook stdin JSON carries `tool_name`, `tool_input.file_path` (or `notebook_path`), `cwd`, and for Stop `stop_hook_active`; a PreToolUse hook blocks with exit code 2 and stderr as the reason; a Stop hook gives **non-blocking** guidance with stdout `{"hookSpecificOutput": {"hookEventName": "Stop", "additionalContext": "..."}}` (shown as "Stop hook feedback", no error), while `{"decision": "block"}` would prevent stopping.
 
 - [ ] **Step 1: Write the failing hook unit tests**
 
@@ -2535,18 +2783,23 @@ describe('shouldRemind', () => {
 });
 ```
 
-`tools/claude-plugin/tests/hooks-cli.test.mjs` (the executables, driven over stdin exactly as Claude Code drives them):
+`tools/claude-plugin/tests/hooks-cli.test.mjs` (the executables, driven over stdin exactly as Claude Code drives them; `CLAUDE_PROJECT_DIR` is passed the way Claude Code exports it):
 
 ```js
-import { spawnSync } from 'node:child_process';
-import { mkdtempSync, writeFileSync } from 'node:fs';
+import { execFileSync, spawnSync } from 'node:child_process';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
-const hooks = path.resolve(import.meta.dirname, '../ethernal-nest-react/hooks');
-const run = (script, input) =>
-  spawnSync('node', [path.join(hooks, script)], { input: JSON.stringify(input), encoding: 'utf8' });
+const repoRoot = path.resolve(import.meta.dirname, '../../..');
+const hooks = path.resolve(repoRoot, 'tools/claude-plugin/ethernal-nest-react/hooks');
+const run = (script, input, env = {}) =>
+  spawnSync('node', [path.join(hooks, script)], {
+    input: JSON.stringify(input),
+    encoding: 'utf8',
+    env: { ...process.env, CLAUDE_PROJECT_DIR: input.cwd, ...env },
+  });
 
 describe('protect-files.mjs', () => {
   it('exits 2 with a reason for a protected path', () => {
@@ -2554,9 +2807,17 @@ describe('protect-files.mjs', () => {
     expect(r.status).toBe(2);
     expect(r.stderr).toContain('.env');
   });
-  it('exits 0 for an ordinary path and for a notebook path', () => {
+  it('exits 0 for an ordinary path and 2 for a notebook under docs/client', () => {
     expect(run('protect-files.mjs', { tool_name: 'Edit', tool_input: { file_path: 'src/a.ts' }, cwd: '/work/p' }).status).toBe(0);
     expect(run('protect-files.mjs', { tool_name: 'NotebookEdit', tool_input: { notebook_path: 'docs/client/a.ipynb' }, cwd: '/work/p' }).status).toBe(2);
+  });
+  it('resolves against CLAUDE_PROJECT_DIR when the session cwd is a subdirectory', () => {
+    const r = run(
+      'protect-files.mjs',
+      { tool_name: 'Edit', tool_input: { file_path: '/work/p/docs/client/x.pdf' }, cwd: '/work/p/apps/api-admin' },
+      { CLAUDE_PROJECT_DIR: '/work/p' },
+    );
+    expect(r.status).toBe(2);
   });
   it('exits 0 on malformed input instead of blocking everything', () => {
     const r = spawnSync('node', [path.join(hooks, 'protect-files.mjs')], { input: 'not json', encoding: 'utf8' });
@@ -2567,25 +2828,35 @@ describe('protect-files.mjs', () => {
 describe('format-on-edit.mjs', () => {
   it('exits 0 for a file that does not exist', () => {
     const cwd = mkdtempSync(path.join(os.tmpdir(), 'fmt-'));
-    const r = run('format-on-edit.mjs', { tool_name: 'Edit', tool_input: { file_path: 'missing.ts' }, cwd });
-    expect(r.status).toBe(0);
+    expect(run('format-on-edit.mjs', { tool_name: 'Edit', tool_input: { file_path: 'missing.ts' }, cwd }).status).toBe(0);
   });
   it('exits 0 for a file with a syntax error (formatter failure is never fatal)', () => {
     const cwd = mkdtempSync(path.join(os.tmpdir(), 'fmt-'));
     writeFileSync(path.join(cwd, 'broken.ts'), 'const = ;\n');
-    const r = run('format-on-edit.mjs', { tool_name: 'Edit', tool_input: { file_path: 'broken.ts' }, cwd });
-    expect(r.status).toBe(0);
+    expect(run('format-on-edit.mjs', { tool_name: 'Edit', tool_input: { file_path: 'broken.ts' }, cwd }).status).toBe(0);
   });
   it('exits 0 for a non-code file without running anything', () => {
     const cwd = mkdtempSync(path.join(os.tmpdir(), 'fmt-'));
-    const r = run('format-on-edit.mjs', { tool_name: 'Write', tool_input: { file_path: 'notes.md' }, cwd });
-    expect(r.status).toBe(0);
+    expect(run('format-on-edit.mjs', { tool_name: 'Write', tool_input: { file_path: 'notes.md' }, cwd }).status).toBe(0);
   });
+  it('formats a real file inside the repository with eslint --fix and prettier', () => {
+    const dir = path.join(repoRoot, 'tools/claude-plugin/tests/tmp');
+    mkdirSync(dir, { recursive: true });
+    const file = path.join(dir, `fmt-${process.pid}-${Date.now()}.mjs`);
+    writeFileSync(file, 'const  x=1\nexport { x }\n');
+    try {
+      const r = run('format-on-edit.mjs', { tool_name: 'Write', tool_input: { file_path: file }, cwd: repoRoot });
+      expect(r.status).toBe(0);
+      expect(readFileSync(file, 'utf8')).toBe('const x = 1;\nexport { x };\n');
+    } finally {
+      rmSync(file, { force: true });
+    }
+  }, 60_000);
 });
 
 describe('verify-reminder.mjs', () => {
   it('exits 0 and prints nothing when stop_hook_active is true', () => {
-    const r = run('verify-reminder.mjs', { hook_event_name: 'Stop', stop_hook_active: true, cwd: process.cwd() });
+    const r = run('verify-reminder.mjs', { hook_event_name: 'Stop', stop_hook_active: true, cwd: repoRoot });
     expect(r.status).toBe(0);
     expect(r.stdout.trim()).toBe('');
   });
@@ -2594,6 +2865,18 @@ describe('verify-reminder.mjs', () => {
     const r = run('verify-reminder.mjs', { hook_event_name: 'Stop', stop_hook_active: false, cwd });
     expect(r.status).toBe(0);
     expect(r.stdout.trim()).toBe('');
+  });
+  it('emits non-blocking additionalContext when apps/ has uncommitted changes', () => {
+    const cwd = mkdtempSync(path.join(os.tmpdir(), 'git-'));
+    execFileSync('git', ['init', '-q'], { cwd });
+    mkdirSync(path.join(cwd, 'apps/x'), { recursive: true });
+    writeFileSync(path.join(cwd, 'apps/x/a.ts'), 'export const a = 1;\n');
+    const r = run('verify-reminder.mjs', { hook_event_name: 'Stop', stop_hook_active: false, cwd });
+    expect(r.status).toBe(0);
+    const out = JSON.parse(r.stdout);
+    expect(out.hookSpecificOutput.hookEventName).toBe('Stop');
+    expect(out.hookSpecificOutput.additionalContext).toContain('pnpm verify');
+    expect(out.decision).toBeUndefined();
   });
 });
 ```
@@ -2612,7 +2895,7 @@ describe('verify-reminder.mjs', () => {
   "scripts": {
     "lint": "eslint .",
     "test": "vitest run",
-    "validate": "claude plugin validate ethernal-nest-react --strict"
+    "validate": "\"${CLAUDE_BIN:-claude}\" plugin validate . --strict && \"${CLAUDE_BIN:-claude}\" plugin validate ethernal-nest-react --strict"
   },
   "devDependencies": {
     "@tms/config": "workspace:*",
@@ -2636,19 +2919,6 @@ export default defineConfig({ test: { include: ['tests/**/*.test.mjs'] } });
 import { nodeConfig } from '@tms/config/eslint/node';
 
 export default nodeConfig({ tsconfigRootDir: import.meta.dirname });
-```
-
-`tools/claude-plugin/README.md`:
-
-```markdown
-# Claude Code plugin workspace
-
-`ethernal-nest-react/` is the plugin (loaded with `pnpm claude`, i.e.
-`claude --plugin-dir tools/claude-plugin/ethernal-nest-react`). This directory around it holds
-the vitest tests for the hook scripts so the plugin folder itself stays publishable.
-
-- `pnpm --filter @tms/claude-plugin test` — hook unit and CLI tests
-- `pnpm --filter @tms/claude-plugin validate` — `claude plugin validate --strict` (needs the Claude CLI)
 ```
 
 - [ ] **Step 3: Write the plugin manifest and hooks**
@@ -2736,14 +3006,14 @@ const CLIENT_REASON = 'docs/client/ holds client documents that are never commit
  * Decides whether an edit to `filePath` must be blocked (spec section 14 PreToolUse hook):
  * `.env`, `.env.*` except `*.example`, and everything under `docs/client/`.
  *
- * @param {string | undefined} filePath absolute or relative to `cwd`
- * @param {string} cwd project directory
+ * @param {string | undefined} filePath absolute or relative to `projectRoot`
+ * @param {string} projectRoot the project root (CLAUDE_PROJECT_DIR), not the session cwd
  * @returns {{ blocked: boolean, reason?: string }}
  */
-export function classifyEdit(filePath, cwd) {
+export function classifyEdit(filePath, projectRoot) {
   if (!filePath) return { blocked: false };
-  const abs = path.resolve(cwd, filePath);
-  const rel = path.relative(cwd, abs).split(path.sep).join('/');
+  const abs = path.resolve(projectRoot, filePath);
+  const rel = path.relative(projectRoot, abs).split(path.sep).join('/');
   if (rel === '..' || rel.startsWith('../') || path.isAbsolute(rel)) return { blocked: false };
 
   const base = path.posix.basename(rel);
@@ -2781,8 +3051,8 @@ const WATCHED = /^(apps|packages)\//;
 
 /**
  * @param {{ porcelain: string, stopHookActive: boolean }} input
- *   porcelain: output of `git status --porcelain`; stopHookActive: true when this Stop
- *   already blocked once in this turn (never block twice).
+ *   porcelain: output of `git status --porcelain`; stopHookActive: true when a Stop hook already
+ *   ran for this stop (remind at most once per stop).
  */
 export function shouldRemind({ porcelain, stopHookActive }) {
   if (stopHookActive) return false;
@@ -2801,16 +3071,26 @@ export const REMINDER =
   '(or state explicitly why it was skipped) and report the actual result to the user.';
 ```
 
+`hooks/lib/project-root.mjs`:
+
+```js
+/** The project root Claude Code started in; the payload's cwd may be a subdirectory. */
+export function projectRoot(input) {
+  return process.env['CLAUDE_PROJECT_DIR'] ?? input.cwd ?? process.cwd();
+}
+```
+
 `hooks/protect-files.mjs`:
 
 ```js
 #!/usr/bin/env node
 import { readStdinJson } from './lib/stdin.mjs';
 import { classifyEdit } from './lib/protect.mjs';
+import { projectRoot } from './lib/project-root.mjs';
 
 const input = await readStdinJson();
 const filePath = input.tool_input?.file_path ?? input.tool_input?.notebook_path;
-const verdict = classifyEdit(filePath, input.cwd ?? process.cwd());
+const verdict = classifyEdit(filePath, projectRoot(input));
 if (verdict.blocked) {
   process.stderr.write(`[ethernal-nest-react] blocked: ${verdict.reason}\n`);
   process.exit(2);
@@ -2826,20 +3106,21 @@ import { existsSync } from 'node:fs';
 import path from 'node:path';
 import { readStdinJson } from './lib/stdin.mjs';
 import { shouldFormat } from './lib/format.mjs';
+import { projectRoot } from './lib/project-root.mjs';
 
 const input = await readStdinJson();
-const cwd = input.cwd ?? process.cwd();
+const root = projectRoot(input);
 const filePath = input.tool_input?.file_path;
 if (!filePath) process.exit(0);
 
-const abs = path.resolve(cwd, filePath);
-const rel = path.relative(cwd, abs);
+const abs = path.resolve(root, filePath);
+const rel = path.relative(root, abs);
 if (rel.startsWith('..') || !shouldFormat(rel) || !existsSync(abs)) process.exit(0);
 
 // Formatting is best effort: a parse error in a half-written file must never block Claude.
 const run = (args) => {
   try {
-    execFileSync('pnpm', ['exec', ...args, abs], { cwd, stdio: 'ignore', timeout: 45_000 });
+    execFileSync('pnpm', ['exec', ...args, abs], { cwd: root, stdio: 'ignore', timeout: 45_000 });
   } catch {
     /* ignored on purpose */
   }
@@ -2856,14 +3137,15 @@ process.exit(0);
 import { execFileSync } from 'node:child_process';
 import { readStdinJson } from './lib/stdin.mjs';
 import { REMINDER, shouldRemind } from './lib/reminder.mjs';
+import { projectRoot } from './lib/project-root.mjs';
 
 const input = await readStdinJson();
-const cwd = input.cwd ?? process.cwd();
+const root = projectRoot(input);
 
 let porcelain = '';
 try {
   porcelain = execFileSync('git', ['status', '--porcelain', '--', 'apps', 'packages'], {
-    cwd,
+    cwd: root,
     encoding: 'utf8',
     stdio: ['ignore', 'pipe', 'ignore'],
   });
@@ -2872,17 +3154,43 @@ try {
 }
 
 if (shouldRemind({ porcelain, stopHookActive: Boolean(input.stop_hook_active) })) {
-  process.stdout.write(JSON.stringify({ decision: 'block', reason: REMINDER }));
+  // Non-blocking guidance: shown as "Stop hook feedback", never as a hook error.
+  process.stdout.write(
+    JSON.stringify({ hookSpecificOutput: { hookEventName: 'Stop', additionalContext: REMINDER } }),
+  );
 }
 process.exit(0);
 ```
 
-- [ ] **Step 4: Run the hook tests**
+- [ ] **Step 4: Run the hook tests and validate the manifest**
 
 Run: `pnpm install && pnpm --filter @tms/claude-plugin test lint`
-Expected: 52 tests pass (protect 20, format 20, reminder 4, cli 8).
+Expected: 55 tests pass (protect 20, format 20, reminder 4, cli 11).
 
-- [ ] **Step 5: Write the `plan-critic` agent**
+Run: `~/.local/bin/claude plugin validate tools/claude-plugin/ethernal-nest-react --strict; echo exit=$?`
+Expected: no errors or warnings, exit 0 (agents and skills are added in Task 10b; the manifest and hooks validate on their own).
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add tools/claude-plugin pnpm-lock.yaml docs/efficiency/critical-path.md
+git commit -m "feat(plugin): add ethernal-nest-react hooks for protected files, format-on-edit and verify reminder"
+```
+
+---
+
+### Task 10b: Plugin agent, skills, marketplace and project settings
+
+**Files:**
+- Create: `tools/claude-plugin/ethernal-nest-react/agents/plan-critic.md`, `tools/claude-plugin/ethernal-nest-react/skills/verify/SKILL.md`, `tools/claude-plugin/ethernal-nest-react/skills/pr/SKILL.md`, `tools/claude-plugin/ethernal-nest-react/README.md`, `tools/claude-plugin/.claude-plugin/marketplace.json`, `tools/claude-plugin/README.md`, `.claude/settings.json`
+
+**Interfaces:**
+- Consumes: the plugin manifest and hooks (Task 10a), root `pnpm verify` (Task 1), `.github/pull_request_template.md` (Task 11; the `pr` skill reads it, so Task 11 must land before the skill is first used).
+- Produces: the `plan-critic` agent used from this phase on; skills invoked as `/ethernal-nest-react:verify` and `/ethernal-nest-react:pr`; the plugin auto-loads for every clone through the project marketplace `tms` (`extraKnownMarketplaces` with a `directory` source and `enabledPlugins`), with `pnpm claude` (`--plugin-dir`) as the fallback. Skills `new-module`, `add-permission`, `db-migration`, `new-admin-page`, `e2e-scenario`, `docs-sync` and agents `security-reviewer`, `qa-e2e`, `architecture-reviewer`, `docs-writer` are added in the phase that first needs them, each written with `superpowers:writing-skills`.
+
+**Documented facts this task relies on** (verified 2026-09-23 against code.claude.com/docs): agent frontmatter accepts `name`, `description`, `tools` (comma-separated), `model: inherit`; skills are invoked as `/<plugin>:<skill>`; `claude plugin validate <path> --strict` validates a plugin or a marketplace directory; `extraKnownMarketplaces` accepts `{ "source": { "source": "directory", "path": "..." } }` and a relative path resolves against the repository's main checkout after the folder is trusted; `enabledPlugins` is an object `{ "<plugin>@<marketplace>": true }`; permission rules `Edit(<glob>)` also cover Write and NotebookEdit; a leading `/` anchors a path rule at the project directory (`Edit(/docs/client/**)`), `**` crosses directories; `Bash(<prefix>:*)` is a prefix match, and a wildcard before the subcommand (e.g. `Bash(pnpm --filter:*)`) allowlists arbitrary execution, so it is not used.
+
+- [ ] **Step 1: Write the `plan-critic` agent**
 
 `tools/claude-plugin/ethernal-nest-react/agents/plan-critic.md`:
 
@@ -2934,7 +3242,7 @@ concrete edit, not "consider". At most 25 findings; if you have none in a catego
 line. End with: `Summary: N findings (H high, M medium, L low)`.
 ```
 
-- [ ] **Step 6: Write the `verify` and `pr` skills**
+- [ ] **Step 2: Write the `verify` and `pr` skills**
 
 Use `superpowers:writing-skills` for the frontmatter and description conventions; the content below is the draft to start from.
 
@@ -3029,21 +3337,56 @@ End the body with the attribution line the session's system reminder prescribes.
 
 Claude Code plugin for Ethernal's NestJS + React + Prisma projects.
 
-- **Hooks**: `PreToolUse` blocks edits to `.env`, `.env.*` (except `*.example`) and `docs/client/**`;
-  `PostToolUse` runs eslint --fix and prettier on edited TypeScript/JavaScript files; `Stop`
-  reminds (once) to run `pnpm verify` when `apps/` or `packages/` have uncommitted changes.
+- **Hooks**: `PreToolUse` blocks edits to `.env`, `.env.*` (except `*.example`) and `docs/client/**`
+  (paths resolved against the project root, not the session cwd); `PostToolUse` runs eslint --fix
+  and prettier on edited TypeScript/JavaScript files, best effort; `Stop` adds a non-blocking
+  reminder to run `pnpm verify` when `apps/` or `packages/` have uncommitted changes.
 - **Agents**: `plan-critic` (read-only critic for specs and plans).
 - **Skills**: `verify`, `pr`. More (`new-module`, `add-permission`, `db-migration`,
   `new-admin-page`, `e2e-scenario`, `docs-sync`) and agents (`security-reviewer`, `qa-e2e`,
   `architecture-reviewer`, `docs-writer`) arrive with the phases that need them.
 
-Load: `claude --plugin-dir tools/claude-plugin/ethernal-nest-react` (or `pnpm claude`).
-Validate: `claude plugin validate tools/claude-plugin/ethernal-nest-react --strict`.
+Loading: the repository's `.claude/settings.json` registers the local marketplace `tms`
+(`tools/claude-plugin`) and enables `ethernal-nest-react@tms`, so the plugin is active once the
+folder is trusted. Fallback: `pnpm claude` (`claude --plugin-dir tools/claude-plugin/ethernal-nest-react`).
+Validate: `pnpm --filter @tms/claude-plugin validate`.
 ```
 
-- [ ] **Step 7: Write the project settings**
+`tools/claude-plugin/README.md`:
 
-`.claude/settings.json` (always-on layer that does not depend on the plugin being loaded; the hook adds the `.env.*` nuance):
+```markdown
+# Claude Code plugin workspace
+
+`ethernal-nest-react/` is the plugin. This directory is also a local plugin **marketplace**
+(`.claude-plugin/marketplace.json`) registered by the repository's `.claude/settings.json`, and a
+workspace package holding the vitest tests for the hook scripts, so the plugin folder itself stays
+publishable.
+
+- `pnpm --filter @tms/claude-plugin test` — hook unit and CLI tests
+- `pnpm --filter @tms/claude-plugin validate` — `claude plugin validate --strict` for the
+  marketplace and the plugin (set `CLAUDE_BIN=~/.local/bin/claude` if `claude` is not on PATH)
+```
+
+- [ ] **Step 3: Write the marketplace manifest and the project settings**
+
+`tools/claude-plugin/.claude-plugin/marketplace.json`:
+
+```json
+{
+  "name": "tms",
+  "owner": { "name": "Ethernal" },
+  "metadata": { "description": "Plugins developed inside the TMS platform repository" },
+  "plugins": [
+    {
+      "name": "ethernal-nest-react",
+      "source": "./ethernal-nest-react",
+      "description": "NestJS + React + Prisma workflow: protective hooks, plan critic, verify and PR skills"
+    }
+  ]
+}
+```
+
+`.claude/settings.json` (the deny rules are the always-on layer that does not depend on the plugin being loaded; the hook adds the `.env.*` nuance. Leading `/` anchors at the project directory. No `Bash(pnpm --filter:*)`: a wildcard before the subcommand would allowlist arbitrary execution; scoped runs go through `pnpm turbo run <task> --filter=<pkg>`):
 
 ```json
 {
@@ -3060,7 +3403,6 @@ Validate: `claude plugin validate tools/claude-plugin/ethernal-nest-react --stri
       "Bash(pnpm format:*)",
       "Bash(pnpm hygiene:*)",
       "Bash(pnpm turbo run:*)",
-      "Bash(pnpm --filter:*)",
       "Bash(pnpm compose ps:*)",
       "Bash(pnpm compose logs:*)",
       "Bash(pnpm compose config:*)",
@@ -3079,25 +3421,32 @@ Validate: `claude plugin validate tools/claude-plugin/ethernal-nest-react --stri
       "Bash(git log:*)",
       "Bash(git branch:*)"
     ],
-    "deny": ["Edit(docs/client/**)", "Edit(.env)", "Edit(**/.env)"]
-  }
+    "deny": ["Edit(/docs/client/**)", "Edit(/.env)", "Edit(/**/.env)"]
+  },
+  "extraKnownMarketplaces": {
+    "tms": { "source": { "source": "directory", "path": "./tools/claude-plugin" } }
+  },
+  "enabledPlugins": { "ethernal-nest-react@tms": true }
 }
 ```
 
 If `claude plugin validate --strict` or Claude Code rejects the `$schema` key, remove it.
 
-- [ ] **Step 8: Validate the plugin with the CLI**
+- [ ] **Step 4: Validate the marketplace and the plugin, and check that it loads**
 
-Run: `~/.local/bin/claude plugin validate tools/claude-plugin/ethernal-nest-react --strict; echo exit=$?`
-Expected: report with no errors or warnings, exit 0. Fix any flagged frontmatter field and re-run.
+Run: `CLAUDE_BIN=~/.local/bin/claude pnpm --filter @tms/claude-plugin validate; echo exit=$?`
+Expected: both reports without errors or warnings, exit 0. Fix any flagged frontmatter field and re-run.
 
-Manual hook check (record in the journal): start `pnpm claude` in a terminal, ask Claude to append a comment to `apps/api-admin/.env.example` (allowed) and to `docs/client/README.md` (blocked with the reason shown), then edit a `.ts` file with bad spacing and confirm the file is formatted after the edit. If this cannot be done in the current environment, mark it `not run` in the PR.
+Run (loads the plugin from the project settings in a fresh, non-interactive session; the folder must already be trusted): `cd /home/stefan/Ethernal/src/TankManagementSystem && ~/.local/bin/claude -p "List the plugins loaded in this session and the names of their hooks, agents and skills. Answer in one line." --output-format text`
+Expected: the answer names `ethernal-nest-react` with `plan-critic`, `verify`, `pr` and the three hooks. If the relative `directory` path is not accepted, change `path` to the absolute checkout path for the journal record, keep `pnpm claude` as the documented fallback, and note it in the PR "Risks and notes".
 
-- [ ] **Step 9: Commit**
+Manual hook check (record in the journal): in that session ask Claude to append a comment to `apps/api-admin/.env.example` (allowed) and to `docs/client/README.md` (blocked, reason shown), then to fix spacing in a `.ts` file and confirm it is formatted after the edit. If this cannot be done in the current environment, mark it `not run` in the PR.
+
+- [ ] **Step 5: Commit**
 
 ```bash
-git add tools/claude-plugin .claude/settings.json pnpm-lock.yaml
-git commit -m "feat(plugin): add ethernal-nest-react plugin skeleton with protect/format/verify hooks, plan-critic agent and verify/pr skills"
+git add tools/claude-plugin .claude/settings.json docs/efficiency/critical-path.md
+git commit -m "feat(plugin): add plan-critic agent, verify and pr skills, local marketplace and project settings"
 ```
 
 ---
@@ -3133,9 +3482,10 @@ React 19 + Vite 8 + Vitest 5, Prisma 7, zod 4, Playwright, ESLint 10 with `eslin
 - `pnpm dev` — `predev` applies migrations; api-admin :3001, api-driver :3002, web-admin :5173,
   web-driver :5174 (Vite proxies `/api`)
 - `pnpm verify` — lint, typecheck, tests, build, format check, hygiene, gitleaks. Run before every PR.
+- `pnpm turbo run <task> --filter=<package>` — scoped runs (this form is allowlisted; `pnpm --filter` is not)
 - `pnpm compose --profile full up -d --build && infra/smoke.sh --full && pnpm e2e` — production-like
   stack behind Caddy (:8080 admin, :8081 kiosk) plus Playwright
-- `pnpm claude` — Claude Code with the project plugin (`tools/claude-plugin/ethernal-nest-react`)
+- The plugin `ethernal-nest-react` loads from `.claude/settings.json` (marketplace `tms`); fallback `pnpm claude`
 
 ## Where things live
 
@@ -3146,7 +3496,8 @@ React 19 + Vite 8 + Vitest 5, Prisma 7, zod 4, Playwright, ESLint 10 with `eslin
 - `infra/` — compose, Dockerfiles, Caddyfile, `smoke.sh`; `e2e/` — Playwright
 - `tools/scripts` — hygiene + gitleaks wrapper; `tools/claude-plugin` — Claude plugin and its tests
 - `docs/adr/` — decisions; `docs/architecture.md` — technical docs; `docs/efficiency/` — journals
-- `docs/client/` — client documents, gitignored, never committed, never modified by Claude
+- `docs/client/` — client documents, gitignored, never committed, never modified by Claude;
+  `docs/client/forbidden-terms.txt` feeds the hygiene check that keeps the client name out of the repo
 
 ## Rules
 
@@ -3225,7 +3576,10 @@ end of the POC).
 
 - Node 24 (`.nvmrc`), pnpm 12.5.1 (`corepack enable` picks it from `packageManager`)
 - Docker with Compose v2 (used for Postgres, Mailpit, migrations and the production-like stack)
-- Claude Code 2.1+ with the Claude in Chrome extension for visual verification (optional)
+- Claude Code 2.1+ with the Claude in Chrome extension for visual verification (optional). If the
+  `claude` binary is not on `PATH` in your shell, set `CLAUDE_BIN=~/.local/bin/claude`.
+- Owners of the client documents also keep `docs/client/forbidden-terms.txt` (gitignored) so the
+  hygiene check can guarantee the client name never enters this public repository.
 
 ## Quick start
 
@@ -3445,21 +3799,21 @@ Expected: hygiene ok, prettier clean (run `pnpm format` first if needed), CLAUDE
 - [ ] **Step 6: Commit**
 
 ```bash
-git add CLAUDE.md README.md .github/pull_request_template.md docs/architecture.md docs/adr
+git add CLAUDE.md README.md .github/pull_request_template.md docs/architecture.md docs/adr docs/efficiency/critical-path.md
 git commit -m "docs: add CLAUDE.md, README, PR template, architecture skeleton and ADR 0001-0002"
 ```
 
 ---
 
-### Task 12: `claude --chrome` check, ruleset required checks, journal
+### Task 12: `claude --chrome` check, ruleset required checks, human decisions
 
 **Files:**
-- Modify: `docs/efficiency/critical-path.md` (rows for every task of this phase, the critic pass and the chrome check)
-- Outside the repository: GitHub ruleset `main: pull requests only` (id 23869173)
+- Modify: `docs/efficiency/critical-path.md` (rows for the chrome check, the ruleset update and any pending human decision; task rows were appended by each task)
+- Outside the repository: GitHub ruleset `main: pull requests only` (id 23869173); repository secret `FORBIDDEN_TERMS` (set in Task 9, verified here)
 
 **Interfaces:**
-- Consumes: CI check names `verify`, `hygiene`, `db-drift`, `e2e` (Task 9), compose `full` stack (Task 5).
-- Produces: `main` requires those four checks (strict policy); recorded chrome outcome.
+- Consumes: CI check names `verify`, `hygiene`, `db-drift`, `e2e` (Task 9), compose `full` stack (Task 5b).
+- Produces: `main` requires those four checks (strict policy); recorded chrome outcome; an explicit list of decisions left to Stefan (repository LICENSE: a public repository without one is "all rights reserved"; the plan adds none).
 
 - [ ] **Step 1: `claude --chrome` check (needs a terminal with Chrome and the extension; approach `human` if the session cannot do it)**
 
@@ -3489,13 +3843,13 @@ gh api -X PUT repos/Stefan-Ethernal/tms-platform/rulesets/23869173 --input /tmp/
 
 Expected: the output lists the existing rule types plus `required_status_checks`. Verify with `gh pr checks` on the PR that all four are marked required.
 
-- [ ] **Step 3: Update the journal**
+- [ ] **Step 3: Complete the journal and list the human decisions**
 
-Append one row per task (1-11), one for the critic pass over this plan, one for the chrome check and one for the PR, following the existing columns of `docs/efficiency/critical-path.md`. Times in Europe/Belgrade; `Approach` is `subagent` for tasks executed by implementer subagents, `human` for the chrome check if Stefan performed it.
+Check that `docs/efficiency/critical-path.md` has one row per task (1 to 11, appended by each task's commit), plus rows for the critic pass, the chrome check and the ruleset update. `Approach` is `subagent` for tasks executed by implementer subagents, `human` for the chrome check if Stefan performed it. Add a short "Decisions for Stefan" list under the table: repository LICENSE choice; confirmation of the `docs/client/forbidden-terms.txt` contents; whether the `e2e` check should stay required on `main` once its duration is known.
 
 ```bash
 git add docs/efficiency/critical-path.md
-git commit -m "docs: log phase 0 tasks, critic pass and verification in the efficiency journal"
+git commit -m "docs: log chrome check, ruleset update and open decisions in the efficiency journal"
 ```
 
 ---
@@ -3529,13 +3883,45 @@ Run `/code-review` on the PR (no auth code in this phase, so `security-reviewer`
 
 ---
 
-## Deliberate deviations and open points for the critic
+## Deliberate deviations from the spec (all judged by the critic pass)
 
-1. Caddy is in the `full` profile, not the default one (spec 17.1 lists it among default services): without app containers it has no upstreams; in dev Vite proxies (D11).
-2. Compose `test` profile (shortened lockouts) deferred to phase 2 when lockout exists.
-3. `packages/db` exists in phase 0 (spec lists `db` under phase 1) but only as schema + config, so `migrate`, `predev` and the drift check are real from the start.
-4. `boundaries/element-types` is configured but only testable in phase 1 when `packages/contracts`, `domain` etc. exist; the api-driver subpath restriction is tested now.
-5. The Stop hook is a one-shot `decision: block` reminder (guarded by `stop_hook_active`) because a non-blocking Stop message is not documented.
-6. Plugin auto-loading via a project marketplace is not documented for directory sources; `pnpm claude` and CLAUDE.md carry the `--plugin-dir` instruction until the private marketplace at the end of the POC.
-7. No LICENSE file is added: the repository is public and the choice of licence is Stefan's.
-8. The `claude --chrome` check needs a terminal session with the extension; an autonomous session inside VS Code cannot perform it and must report `not run`.
+1. Caddy is in the `full` profile, not the default one (spec 17.1 lists it among default services): without app containers it has no upstreams; in dev Vite proxies (D11). Justified.
+2. Compose `test` profile (shortened lockouts) deferred to phase 2 when lockout exists. Justified.
+3. `packages/db` exists in phase 0 (spec lists `db` under phase 1) but only as schema + config, so `migrate`, `predev` and the drift check are real from the start. Justified once `prisma.config.ts` tolerates a missing `DATABASE_URL` for `validate` (finding 1).
+4. No LICENSE file is added: the repository is public and the choice of licence is Stefan's; listed as an open decision in Task 12.
+5. The `claude --chrome` check needs a terminal session with the extension; an autonomous session inside VS Code cannot perform it and must report `not run`. Justified: the spec item is satisfied by recording the outcome.
+
+Two deviations proposed in the first draft were rejected by the critic and removed: a blocking Stop hook (the documented `additionalContext` is non-blocking) and deferring the project marketplace (a `directory` source with a relative path is documented).
+
+## Critic pass over this plan: 24 findings, 24 accepted, 0 rejected
+
+Run 2026-09-23 11:05–11:12 by a fresh read-only Plan agent over the spec, the plan, the journal and `.gitignore`; it verified versions, peer ranges, template contents and CLI flags read-only (`npm view`, tarball inspection, docs). Incorporated 11:12–11:45.
+
+| # | Severity | Finding (abridged) | Change made |
+|---|---|---|---|
+| 1 | HIGH | Prisma `env()` throws eagerly, so `prisma validate` in `turbo run test` fails wherever `DATABASE_URL` is unset (CI `verify`, pre-push); the draft's fallback default URL would let `migrate deploy` connect silently | `datasource` set only when the variable exists; criteria rewritten (Task 4) |
+| 2 | HIGH | "Client name never in the repo" had no mechanical guard | Forbidden-terms check in `check-hygiene.mjs` (file + `FORBIDDEN_TERMS` secret, `--staged` in pre-commit, never prints the term) with unit and git-repo tests (Tasks 7, 8, 9) |
+| 3 | HIGH | No root `eslint.config.mjs`: lint-staged on `commitlint.config.mjs` fails, Task 8's own commit rejected | Root config added (Task 1) and checked in Tasks 1 and 8 |
+| 4 | MEDIUM | Three commit headers over 100 chars, rejected by commitlint | Shortened; constraint added |
+| 5 | MEDIUM | Fake token `ghp_AAAA…` has entropy 0, `github-pat` rule needs ≥ 3 | `openssl rand -hex 18` |
+| 6 | MEDIUM | Deprecated `[allowlist]` and fail-open path allowlist for `.env.example` | Removed; default rules only |
+| 7 | MEDIUM | Stop hook `decision: block` shows a hook error; `additionalContext` is the documented non-blocking form | Rewritten (Task 10a) |
+| 8 | MEDIUM | Hooks and deny rules resolve against the session cwd; a subdirectory session fails open | `CLAUDE_PROJECT_DIR`, anchored `Edit(/...)` rules, subdirectory test |
+| 9 | MEDIUM | `Bash(pnpm --filter:*)` allowlists arbitrary execution | Removed; `pnpm turbo run … --filter` documented |
+| 10 | MEDIUM | `prettier --check .` would rewrite the approved spec, plans and journal | `docs/superpowers`, `docs/efficiency` in `.prettierignore` |
+| 11 | MEDIUM | `smoke.sh --full` hits `/api` once while Caddy is up before Nest binds | Retry loop until 404 |
+| 12 | MEDIUM | `playwright install --with-deps` prompts for `sudo` locally | Chromium only locally; `--with-deps` in CI |
+| 13 | MEDIUM | Formatting demo file trips unfixable `no-unused-vars` | `export const  x=1` |
+| 14 | MEDIUM | Format hook tests only asserted exit 0 | Positive test at the repo root asserting the formatted content |
+| 15 | MEDIUM | Directory marketplace is documented; auto-load possible now | `marketplace.json` + `extraKnownMarketplaces` + `enabledPlugins` (Task 10b) |
+| 16 | LOW | gitleaks test downloaded on every `turbo run test` | Seeds from the repo cache; download only when absent |
+| 17 | LOW | Wrong expected test count | Corrected |
+| 18 | LOW | Journal rows batched at the end | Each task's commit appends its row |
+| 19 | LOW | Tasks 5 and 10 too large for one implementer | Split into 5a/5b and 10a/10b |
+| 20 | LOW | boundaries v7 patterns misuse (`/**`, capture count) and untested until phase 1 | Folder patterns; fixture test added (Task 1) |
+| 21 | LOW | `.env.example` comment promised `.env` loading nothing implements | Comment corrected |
+| 22 | LOW | `claude` not on PATH in non-interactive shells | `${CLAUDE_BIN:-claude}` in scripts, README note |
+| 23 | LOW | `kill %1` leaves node/vite children on the ports | `timeout` wrappers |
+| 24 | LOW | `<title>` contradicts "no user-facing strings" | Constraint amended |
+
+Estimated rework prevented: findings 1, 3, 4, 5, 13 would each have failed a task's own acceptance step; 2 and 8 are data-exposure guards that could not be repaired after a public push.
