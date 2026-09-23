@@ -7,6 +7,7 @@
   },
   "scripts": {
     "prepare": "husky",
+    "predev": "pnpm --filter @tms/db db:migrate:deploy",
     "dev": "turbo run dev",
     "build": "turbo run build",
     "lint": "turbo run lint",
