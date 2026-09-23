@@ -21,9 +21,13 @@ Read `.github/pull_request_template.md` and fill every section:
    flowchart for state machines and pipelines, erDiagram for schema changes, block for topology.
 3. **Affected boundaries**: packages/apps touched, public interfaces added or changed,
    migration yes/no and whether it is reversible.
-4. **Verification**: paste the `scenario | layer | outcome` table with real results; for frontend
-   changes add the numbered `claude --chrome` steps and the 2-4 screenshots.
-5. **Risks and notes**: uncovered areas, follow-ups, ADR candidates, steps that could not run.
+4. **Verification plan**: the `scenario | layer | outcome` table as planned before running it —
+   what each scenario is meant to prove and at which layer (unit, integration, e2e, manual).
+5. **Verification results**: the same table filled with the real output from
+   `/ethernal-nest-react:verify`; for frontend changes add the numbered `claude --chrome` steps and
+   the 2-4 screenshots (or other graphics) that back them. Never fill this section before the
+   commands actually ran.
+6. **Risks and notes**: uncovered areas, follow-ups, ADR candidates, steps that could not run.
 
 ## Create
 
