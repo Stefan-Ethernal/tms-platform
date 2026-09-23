@@ -3,6 +3,7 @@ packages:
   - packages/*
   - e2e
   - tools/scripts
+  - tools/claude-plugin
 
 # pnpm 12 reads only auth and registry keys from .npmrc, so settings live here.
 engineStrict: true
