@@ -1,0 +1,13 @@
+node_modules
+dist
+coverage
+.turbo
+.cache
+pnpm-lock.yaml
+docs/client
+docs/superpowers
+docs/efficiency
+**/generated
+playwright-report
+test-results
+apps/*/public/mockServiceWorker.js

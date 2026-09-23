@@ -1,0 +1,16 @@
+{
+  "$schema": "https://turborepo.dev/schema.json",
+  "ui": "stream",
+  "globalDependencies": [".nvmrc", "pnpm-workspace.yaml", "packages/config/**"],
+  "tasks": {
+    "build": {
+      "dependsOn": ["^build"],
+      "outputs": ["dist/**"],
+      "inputs": ["$TURBO_DEFAULT$", "!**/*.md"]
+    },
+    "typecheck": { "dependsOn": ["^build"] },
+    "lint": { "dependsOn": ["^build"] },
+    "test": { "dependsOn": ["^build"], "outputs": ["coverage/**"] },
+    "dev": { "cache": false, "persistent": true, "dependsOn": ["^build"] }
+  }
+}
