@@ -15,6 +15,10 @@ describe('classifyEdit', () => {
     'docs/client/functional-description.pdf',
     'docs/client/README.md',
     'docs/client/sub/notes.md',
+    'DOCS/Client/x.pdf',
+    'DOCS/CLIENT/x.pdf',
+    '.ENV',
+    'apps/api-admin/.ENV.LOCAL',
   ])('blocks %s', (p) => {
     const verdict = classifyEdit(p, cwd);
     expect(verdict.blocked).toBe(true);
@@ -30,6 +34,8 @@ describe('classifyEdit', () => {
     'docs/clientele/notes.md',
     'docs/client-facing.md',
     'environment.ts',
+    '.Env.Example',
+    'DOCS/Clientele/x.pdf',
   ])('allows %s', (p) => {
     expect(classifyEdit(p, cwd)).toEqual({ blocked: false });
   });
