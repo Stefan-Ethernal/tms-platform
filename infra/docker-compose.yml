@@ -1,5 +1,9 @@
 name: tms
 
+# In-network connection string, spelled once. The same user, password default and database live in
+# infra/.env.example, packages/db/.env.example and the db-drift job of .github/workflows/ci.yml.
+x-database-url: &database-url postgresql://tms:${POSTGRES_PASSWORD:-tms}@postgres:5432/tms
+
 services:
   postgres:
     image: postgres:16-alpine
@@ -35,7 +39,7 @@ services:
       context: ..
       dockerfile: infra/docker/migrate.Dockerfile
     environment:
-      DATABASE_URL: postgresql://tms:${POSTGRES_PASSWORD:-tms}@postgres:5432/tms
+      DATABASE_URL: *database-url
     depends_on:
       postgres:
         condition: service_healthy
@@ -51,7 +55,7 @@ services:
     environment:
       NODE_ENV: production
       PORT: '3001'
-      DATABASE_URL: postgresql://tms:${POSTGRES_PASSWORD:-tms}@postgres:5432/tms
+      DATABASE_URL: *database-url
     depends_on:
       migrate:
         condition: service_completed_successfully
@@ -66,7 +70,7 @@ services:
     environment:
       NODE_ENV: production
       PORT: '3002'
-      DATABASE_URL: postgresql://tms:${POSTGRES_PASSWORD:-tms}@postgres:5432/tms
+      DATABASE_URL: *database-url
     depends_on:
       migrate:
         condition: service_completed_successfully
