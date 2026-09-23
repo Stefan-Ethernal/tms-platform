@@ -1,0 +1,32 @@
+{
+	auto_https off
+	admin off
+}
+
+# Back-office: SPA + /api -> api-admin (single origin, D11)
+:8080 {
+	encode gzip
+	@api path /api /api/*
+	handle @api {
+		reverse_proxy api-admin:3001
+	}
+	handle {
+		root * /srv/web-admin
+		try_files {path} /index.html
+		file_server
+	}
+}
+
+# Kiosk: SPA + /api -> api-driver
+:8081 {
+	encode gzip
+	@api path /api /api/*
+	handle @api {
+		reverse_proxy api-driver:3002
+	}
+	handle {
+		root * /srv/web-driver
+		try_files {path} /index.html
+		file_server
+	}
+}
