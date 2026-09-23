@@ -20,7 +20,7 @@ React 19 + Vite 8 + Vitest 5, Prisma 7, zod 4, Playwright, ESLint 10 with `eslin
 - `pnpm turbo run <task> --filter=<package>` — scoped runs (this form is allowlisted; `pnpm --filter` is not)
 - `pnpm compose --profile full up -d --build && infra/smoke.sh --full && pnpm e2e` — production-like
   stack behind Caddy (:8080 admin, :8081 kiosk) plus Playwright
-- The plugin `ethernal-nest-react` loads from `.claude/settings.json` (marketplace `tms`); fallback `pnpm claude`
+- Plugin `ethernal-nest-react@tms` is enabled in `.claude/settings.json` and loads once the project is trusted in an interactive session; until then use `pnpm claude`
 
 ## Where things live
 
