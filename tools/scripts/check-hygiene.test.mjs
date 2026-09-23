@@ -1,13 +1,26 @@
 import { describe, expect, it } from 'vitest';
-import { CLAUDE_MD_MAX_LINES, findForbiddenDocuments, runHygiene } from './check-hygiene.mjs';
+import {
+  CLAUDE_MD_MAX_LINES,
+  claudeMdLineCount,
+  findForbiddenDocuments,
+  runHygiene,
+} from './check-hygiene.mjs';
 
 describe('findForbiddenDocuments', () => {
   it('flags pdf, pptx and docx outside docs/client regardless of case', () => {
-    const files = ['README.md', 'docs/spec.PDF', 'apps/x/deck.pptx', 'notes/a.Docx', 'src/a.ts'];
+    const files = [
+      'README.md',
+      'docs/spec.PDF',
+      'apps/x/deck.pptx',
+      'notes/a.Docx',
+      'src/a.ts',
+      'docs/clientele/x.pdf',
+    ];
     expect(findForbiddenDocuments(files)).toEqual([
       'docs/spec.PDF',
       'apps/x/deck.pptx',
       'notes/a.Docx',
+      'docs/clientele/x.pdf',
     ]);
   });
 
@@ -54,6 +67,12 @@ describe('findForbiddenDocuments', () => {
   });
 });
 
+describe('claudeMdLineCount', () => {
+  it('does not count a trailing newline as an extra line', () => {
+    expect(claudeMdLineCount('a\nb\nc\n')).toBe(3);
+  });
+});
+
 describe('runHygiene', () => {
   it('reports nothing for a clean repository', () => {
     expect(runHygiene({ trackedFiles: ['a.ts'], claudeMd: 'short\n' })).toEqual([]);
@@ -66,6 +85,12 @@ describe('runHygiene', () => {
     const problems = runHygiene({ trackedFiles: [], claudeMd });
     expect(problems).toHaveLength(1);
     expect(problems[0]).toMatch(new RegExp(`CLAUDE.md has ${CLAUDE_MD_MAX_LINES + 1} lines`));
+  });
+
+  it('does not report a CLAUDE.md exactly at the line limit', () => {
+    expect(runHygiene({ trackedFiles: [], claudeMd: 'x\n'.repeat(CLAUDE_MD_MAX_LINES) })).toEqual(
+      [],
+    );
   });
 
   it('tolerates a missing CLAUDE.md', () => {
