@@ -20,7 +20,9 @@ export const CLAUDE_MD_MAX_LINES = 150;
 /** @param {string[]} trackedFiles */
 export function findForbiddenDocuments(trackedFiles) {
   return trackedFiles.filter(
-    (f) => FORBIDDEN_DOCUMENT_RE.test(f) && !f.startsWith(CLIENT_DOCS_DIR),
+    (f) =>
+      (FORBIDDEN_DOCUMENT_RE.test(f) && !f.startsWith(CLIENT_DOCS_DIR)) ||
+      (f.startsWith(CLIENT_DOCS_DIR) && f !== `${CLIENT_DOCS_DIR}README.md`),
   );
 }
 
@@ -31,8 +33,10 @@ export function claudeMdLineCount(text) {
 
 /** @param {{ trackedFiles: string[], claudeMd: string | null }} input */
 export function runHygiene({ trackedFiles, claudeMd }) {
-  const problems = findForbiddenDocuments(trackedFiles).map(
-    (f) => `client-type document outside docs/client/: ${f}`,
+  const problems = findForbiddenDocuments(trackedFiles).map((f) =>
+    f.startsWith(CLIENT_DOCS_DIR)
+      ? `tracked file under docs/client/ (must stay untracked): ${f}`
+      : `client-type document outside docs/client/: ${f}`,
   );
   if (claudeMd !== null) {
     const lines = claudeMdLineCount(claudeMd);

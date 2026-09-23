@@ -29,8 +29,15 @@ describe('findForbiddenDocuments', () => {
     expect(findForbiddenDocuments(files)).toEqual(files);
   });
 
-  it('allows documents anywhere under docs/client/', () => {
-    expect(findForbiddenDocuments(['docs/client/a.pdf', 'docs/client/sub/b.docx'])).toEqual([]);
+  it('flags every tracked file under docs/client/ except README.md', () => {
+    expect(
+      findForbiddenDocuments([
+        'docs/client/a.pdf',
+        'docs/client/sub/b.docx',
+        'docs/client/notes.txt',
+        'docs/client/README.md',
+      ]),
+    ).toEqual(['docs/client/a.pdf', 'docs/client/sub/b.docx', 'docs/client/notes.txt']);
   });
 
   it('does not flag look-alike names', () => {
@@ -70,6 +77,13 @@ describe('runHygiene', () => {
     expect(problems).toEqual([
       'client-type document outside docs/client/: x.pdf',
       'client-type document outside docs/client/: y.docx',
+    ]);
+  });
+
+  it('reports a tracked file under docs/client/ with a distinct message', () => {
+    const problems = runHygiene({ trackedFiles: ['docs/client/a.pdf'], claudeMd: '' });
+    expect(problems).toEqual([
+      'tracked file under docs/client/ (must stay untracked): docs/client/a.pdf',
     ]);
   });
 });
