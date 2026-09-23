@@ -35,7 +35,8 @@
       "Edit(/**/.env.local)",
       "Edit(/**/.env.development)",
       "Edit(/**/.env.test)",
-      "Edit(/**/.env.production)"
+      "Edit(/**/.env.production)",
+      "Edit(/**/.env.*.local)"
     ]
   },
   "extraKnownMarketplaces": {

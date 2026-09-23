@@ -22,4 +22,8 @@ describe('.claude/settings.json permissions', () => {
     expect(settings.permissions.allow).toContain('Bash(pnpm install --frozen-lockfile)');
     expect(settings.permissions.allow).not.toContain('Bash(pnpm install:*)');
   });
+
+  it('denies Vite mode-scoped local env files (.env.<mode>.local) (9-M4)', () => {
+    expect(settings.permissions.deny).toContain('Edit(/**/.env.*.local)');
+  });
 });
