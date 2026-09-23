@@ -33,8 +33,8 @@
 
 Inputs the spec implies but that need explicit tests (each pinned to the owning task):
 
-1. **Protected-path hook with unusual paths** (Task 10): absolute paths, `..` traversal, paths outside the project, look-alike directories (`docs/clientele/`) and `.env.production.example` must be classified correctly — a false block stops legitimate work, a false allow leaks a client document.
-2. **Format-on-edit hook on a file it cannot format** (Task 10): a file with a syntax error mid-edit, a file that no longer exists, or one under `dist/`/`generated/` must never exit non-zero or block Claude.
+1. **Protected-path hook with unusual paths** (Task 10a): absolute paths, `..` traversal, paths outside the project, look-alike directories (`docs/clientele/`) and `.env.production.example` must be classified correctly — a false block stops legitimate work, a false allow leaks a client document.
+2. **Format-on-edit hook on a file it cannot format** (Task 10a): a file with a syntax error mid-edit, a file that no longer exists, or one under `dist/`/`generated/` must never exit non-zero or block Claude.
 3. **gitleaks bootstrap under network or integrity failure** (Task 7): a tampered or missing checksum must fail loudly and leave no binary in the cache; a cached binary must work offline.
 4. **API startup with a bad `PORT`** (Task 2): `PORT=abc`, `PORT=0`, `PORT=70000` must fail fast with a message naming `PORT`; unknown variables must be ignored.
 5. **`/api` precedence over the SPA fallback behind Caddy** (Task 5b and Task 6): an unknown `/api/...` path must return the API's JSON 404, never `index.html`, otherwise cookies and CSRF assumptions of D11 silently break.
@@ -56,7 +56,7 @@ Inputs the spec implies but that need explicit tests (each pinned to the owning 
 | 1 | Workspace root + `@tms/config` | pnpm workspace, catalog, Turborepo, shared tsconfig/eslint/jest presets | vitest test of the eslint import-restriction rule; `pnpm install` |
 | 2 | NestJS API skeletons | `apps/api-admin`, `apps/api-driver` with reserved logger/Sentry slots | Jest unit (env) + e2e-spec (404 JSON) |
 | 3 | Vite SPA skeletons + MSW | `apps/web-admin`, `apps/web-driver` | Vitest render test; `vite build` |
-| 4 | Prisma `db` package | schema, `prisma.config.ts`, migration scripts | `prisma validate`; compose migrate exit 0 (Task 5) |
+| 4 | Prisma `db` package | schema, `prisma.config.ts`, migration scripts | `prisma validate`; compose migrate exit 0 (Task 5a) |
 | 5a | Compose default profile: postgres, mailpit, migrate | `infra/docker-compose.yml`, `migrate.Dockerfile`, `.dockerignore`, `smoke.sh`, `predev` | `infra/smoke.sh`; negative check (bad password gates the apps) |
 | 5b | Compose `full` profile: APIs, SPAs behind Caddy | `api.Dockerfile`, `web.Dockerfile`, `Caddyfile`, `smoke.sh --full` | `infra/smoke.sh --full` |
 | 6 | Playwright skeleton | `e2e/**` | smoke specs against compose `full` |
@@ -1329,7 +1329,7 @@ git commit -m "feat(web): add web-admin and web-driver Vite skeletons with MSW a
 
 **Interfaces:**
 - Consumes: catalog `prisma`, `dotenv` (Task 1).
-- Produces: scripts `db:validate`, `db:migrate:dev`, `db:migrate:deploy`, `db:migrate:status`, `db:drift`; env `DATABASE_URL`; `prisma/migrations/` directory that the compose `migrate` service (Task 5) and CI drift job (Task 9) consume. Phase 1 adds models, the generated client, `PrismaService` and the permission sync.
+- Produces: scripts `db:validate`, `db:migrate:dev`, `db:migrate:deploy`, `db:migrate:status`, `db:drift`; env `DATABASE_URL`; `prisma/migrations/` directory that the compose `migrate` service (Task 5a) and CI drift job (Task 9) consume. Phase 1 adds models, the generated client, `PrismaService` and the permission sync.
 
 - [ ] **Step 1: Write the package**
 
@@ -2464,7 +2464,7 @@ Expected: this commit itself passes all three hooks (header 62 characters).
 - Create: `.github/workflows/ci.yml`, `.github/workflows/e2e.yml`, `.github/dependabot.yml`
 
 **Interfaces:**
-- Consumes: root scripts (Task 1), `@tms/db` scripts (Task 4), `infra/smoke.sh` (Task 5), `pnpm e2e` (Task 6), hygiene and gitleaks (Task 7).
+- Consumes: root scripts (Task 1), `@tms/db` scripts (Task 4), `infra/smoke.sh` (Task 5a), `pnpm e2e` (Task 6), hygiene and gitleaks (Task 7).
 - Produces: check names `verify`, `hygiene`, `db-drift`, `e2e` (used by the ruleset in Task 12).
 
 - [ ] **Step 1: Write `ci.yml`**
@@ -3871,7 +3871,7 @@ Expected: everything green locally; CI green on the branch.
 
 - [ ] **Step 2: Open the PR with the `pr` skill**
 
-Title: `build: phase 0 bootstrap — monorepo, tooling, compose, CI, hooks, Claude plugin skeleton`. Body from `.github/pull_request_template.md` with: what/why (spec §16 phase 0), a `block`/flowchart Mermaid of the compose topology, boundaries (all new; no migration), the verification table with real outcomes (config eslint test, API env + e2e-spec counts, web render tests, `prisma validate` + drift, smoke default and full, Playwright 6/6, hygiene tests, gitleaks tests, commitlint demos, hook tests, plugin validate, CI run URLs, chrome check), risks (Task 5 fallbacks used if any, undocumented marketplace directory source, `test` profile deferred to phase 2, boundaries element-types exercised in phase 1, chrome check status).
+Title: `build: phase 0 bootstrap — monorepo, tooling, compose, CI, hooks, Claude plugin skeleton`. Body from `.github/pull_request_template.md` with: what/why (spec §16 phase 0), a `block`/flowchart Mermaid of the compose topology, boundaries (all new; no migration), the verification table with real outcomes (config eslint test, API env + e2e-spec counts, web render tests, `prisma validate` + drift, smoke default and full, Playwright 6/6, hygiene tests, gitleaks tests, commitlint demos, hook tests, plugin validate, CI run URLs, chrome check), risks (fallbacks used if any, whether the relative marketplace path had to be made absolute, `test` profile deferred to phase 2, chrome check status, open decisions for Stefan).
 
 ```bash
 gh pr create --base main --title "..." --body-file /tmp/pr-body.md
