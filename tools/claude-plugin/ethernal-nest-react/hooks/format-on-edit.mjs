@@ -16,9 +16,10 @@ const rel = path.relative(root, abs);
 if (rel.startsWith('..') || !shouldFormat(rel) || !existsSync(abs)) process.exit(0);
 
 // Formatting is best effort: a parse error in a half-written file must never block Claude.
+// Two runs of at most 25 s each fit the 60 s PostToolUse timeout in hooks.json.
 const run = (args) => {
   try {
-    execFileSync('pnpm', ['exec', ...args, abs], { cwd: root, stdio: 'ignore', timeout: 45_000 });
+    execFileSync('pnpm', ['exec', ...args, abs], { cwd: root, stdio: 'ignore', timeout: 25_000 });
   } catch {
     /* ignored on purpose */
   }
