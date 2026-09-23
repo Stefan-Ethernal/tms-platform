@@ -1,4 +1,7 @@
-const WATCHED = /^(apps|packages)\//;
+// Single source of truth for the directories this hook watches: the regex below and the
+// `git status -- <pathspec>` call in verify-reminder.mjs both derive from this list.
+export const WATCHED_DIRS = ['apps', 'packages'];
+const WATCHED = new RegExp(`^(${WATCHED_DIRS.join('|')})/`);
 
 /**
  * @param {{ porcelain: string, stopHookActive: boolean }} input
@@ -12,7 +15,10 @@ export function shouldRemind({ porcelain, stopHookActive }) {
     .filter((line) => line.length > 3)
     .some((line) => {
       const spec = line.slice(3).trim();
-      const target = spec.includes(' -> ') ? spec.split(' -> ')[1] : spec;
+      const raw = spec.includes(' -> ') ? spec.split(' -> ')[1] : spec;
+      // `git status --porcelain` wraps a path containing spaces or other special characters in
+      // double quotes; strip them so the watched-directory prefix check still matches.
+      const target = raw.replace(/^"(.*)"$/, '$1');
       return WATCHED.test(target);
     });
 }

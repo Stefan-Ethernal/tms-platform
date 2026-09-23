@@ -27,4 +27,12 @@ describe('shouldRemind', () => {
   it('never blocks twice in a row', () => {
     expect(shouldRemind({ porcelain: ' M apps/x.ts\n', stopHookActive: true })).toBe(false);
   });
+  it('strips the quotes git adds around a path with special characters', () => {
+    expect(
+      shouldRemind({
+        porcelain: ' M "apps/x/new file.ts"\n',
+        stopHookActive: false,
+      }),
+    ).toBe(true);
+  });
 });

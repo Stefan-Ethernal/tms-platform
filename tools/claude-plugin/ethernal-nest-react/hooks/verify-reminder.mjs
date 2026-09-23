@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { execFileSync } from 'node:child_process';
 import { readStdinJson } from './lib/stdin.mjs';
-import { REMINDER, shouldRemind } from './lib/reminder.mjs';
+import { REMINDER, shouldRemind, WATCHED_DIRS } from './lib/reminder.mjs';
 import { projectRoot } from './lib/project-root.mjs';
 
 const input = await readStdinJson();
@@ -9,7 +9,7 @@ const root = projectRoot(input);
 
 let porcelain = '';
 try {
-  porcelain = execFileSync('git', ['status', '--porcelain', '--', 'apps', 'packages'], {
+  porcelain = execFileSync('git', ['status', '--porcelain', '--', ...WATCHED_DIRS], {
     cwd: root,
     encoding: 'utf8',
     stdio: ['ignore', 'pipe', 'ignore'],
