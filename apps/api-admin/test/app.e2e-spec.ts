@@ -10,7 +10,7 @@ describe('api-admin skeleton (e2e)', () => {
 
   beforeAll(async () => {
     const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
-    app = configureApp(moduleRef.createNestApplication()) as INestApplication<App>;
+    app = configureApp(moduleRef.createNestApplication());
     await app.init();
   });
 
