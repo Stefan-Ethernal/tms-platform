@@ -10,7 +10,7 @@ export function registerSmokeSuite({
   api: string;
 }): void {
   test.describe(`${name} smoke`, () => {
-    test('serves the SPA on the admin origin', async ({ page }) => {
+    test(`serves the SPA on the ${name} origin`, async ({ page }) => {
       await page.goto('/');
       await expect(page).toHaveTitle(title);
       await expect(page.getByTestId('app-root')).toBeAttached();
