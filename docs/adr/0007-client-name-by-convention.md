@@ -31,8 +31,9 @@ every Claude Code session, subagents included) and applies to humans and tooling
 text, commit messages, PR titles and bodies, branch names, fixtures and seed data.
 
 Still enforced mechanically: client-type documents outside `docs/client/` (hygiene check,
-pre-commit and CI), secrets (gitleaks), and Claude's edits to `docs/client/` (plugin hook and
-project settings deny rule).
+pre-commit and CI), secrets (gitleaks), and Claude's file-tool edits to `docs/client/` (plugin hook
+and project settings deny rule); Bash writes (e.g. `git diff --output=...`) are not guarded by
+either.
 
 ## Alternatives considered
 
