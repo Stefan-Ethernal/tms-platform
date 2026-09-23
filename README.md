@@ -12,8 +12,6 @@ end of the POC).
 - Docker with Compose v2 (used for Postgres, Mailpit, migrations and the production-like stack)
 - Claude Code 2.1+ with the Claude in Chrome extension for visual verification (optional). If the
   `claude` binary is not on `PATH` in your shell, set `CLAUDE_BIN=~/.local/bin/claude`.
-- Owners of the client documents also keep `docs/client/forbidden-terms.txt` (gitignored) so the
-  hygiene check can guarantee the client name never enters this public repository.
 
 ## Quick start
 

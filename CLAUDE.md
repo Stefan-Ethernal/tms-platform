@@ -31,8 +31,7 @@ React 19 + Vite 8 + Vitest 5, Prisma 7, zod 4, Playwright, ESLint 10 with `eslin
 - `infra/` — compose, Dockerfiles, Caddyfile, `smoke.sh`; `e2e/` — Playwright
 - `tools/scripts` — hygiene + gitleaks wrapper; `tools/claude-plugin` — Claude plugin and its tests
 - `docs/adr/` — decisions; `docs/architecture.md` — technical docs; `docs/efficiency/` — journals
-- `docs/client/` — client documents, gitignored, never committed, never modified by Claude;
-  `docs/client/forbidden-terms.txt` feeds the hygiene check that keeps the client name out of the repo
+- `docs/client/` — client documents, gitignored, never committed, never modified by Claude
 
 ## Rules
 
@@ -45,7 +44,9 @@ React 19 + Vite 8 + Vitest 5, Prisma 7, zod 4, Playwright, ESLint 10 with `eslin
 - UI strings only through i18n keys; `en` is the only bundle for now.
 - Versions come from the pnpm catalog; never `latest`. Secrets only in env; `.env.example` per app.
 - Conventional commits; feature branch; PR to `main` filled from the PR template by the `pr` skill.
-- The client is referred to as "the client"; no client name anywhere in the repository.
+- The client is referred to as "the client"; no client name anywhere in the repository, including
+  commit messages, PR titles, branch names, fixtures and seed data. Convention only, no mechanical
+  check (ADR 0007).
 
 ## Working agreement
 
