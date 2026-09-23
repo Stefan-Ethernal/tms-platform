@@ -13,7 +13,12 @@ erDiagram (schema), block (topology). Delete this section if text is enough. -->
 - Public interfaces added or changed:
 - Migration: no | yes (reversible: yes/no)
 
-## Verification
+## Verification plan
+
+<!-- What will be run before this PR is ready: pnpm verify, the scenarios and CI jobs, and for
+frontend changes the `claude --chrome` steps planned. -->
+
+## Verification results
 
 <!-- What was actually run and how it went, not what should be checked. -->
 
