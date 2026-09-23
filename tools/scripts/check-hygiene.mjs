@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 /**
  * Repository hygiene (spec sections 13 and 14; public repository):
- *  - no *.pdf|*.pptx|*.docx tracked outside docs/client/,
+ *  - no client-type documents tracked outside docs/client/: PDF, Word, PowerPoint, Excel,
+ *    OpenDocument, Visio, AutoCAD drawings and saved mail (FORBIDDEN_DOCUMENT_RE),
  *  - CLAUDE.md stays short.
  * The client's name is kept out of the repository by convention, not by this script
  * (ADR 0007). Exit 1 with one line per problem.
@@ -11,7 +12,8 @@ import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-export const FORBIDDEN_DOCUMENT_RE = /\.(pdf|pptx|docx)$/i;
+export const FORBIDDEN_DOCUMENT_RE =
+  /\.(pdf|doc|docx|ppt|pptx|xls|xlsx|odt|ods|odp|vsd|vsdx|dwg|msg|eml)$/i;
 export const CLIENT_DOCS_DIR = 'docs/client/';
 export const CLAUDE_MD_MAX_LINES = 150;
 

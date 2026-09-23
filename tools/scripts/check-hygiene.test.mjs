@@ -11,13 +11,38 @@ describe('findForbiddenDocuments', () => {
     ]);
   });
 
+  it('flags legacy office, OpenDocument, Visio, CAD drawing and mail files regardless of case', () => {
+    const files = [
+      'a.doc',
+      'b.PPT',
+      'c.xls',
+      'd.Xlsx',
+      'e.odt',
+      'f.ods',
+      'g.odp',
+      'h.vsd',
+      'i.VSDX',
+      'j.dwg',
+      'k.msg',
+      'l.eml',
+    ];
+    expect(findForbiddenDocuments(files)).toEqual(files);
+  });
+
   it('allows documents anywhere under docs/client/', () => {
     expect(findForbiddenDocuments(['docs/client/a.pdf', 'docs/client/sub/b.docx'])).toEqual([]);
   });
 
   it('does not flag look-alike names', () => {
     expect(
-      findForbiddenDocuments(['report.pdf.txt', 'docs/clientele/x.pdf.md', 'pdfkit.ts']),
+      findForbiddenDocuments([
+        'report.pdf.txt',
+        'docs/clientele/x.pdf.md',
+        'pdfkit.ts',
+        'docs/xlsx-export.ts',
+        'src/email.ts',
+        'msgpack.json',
+      ]),
     ).toEqual([]);
   });
 });
