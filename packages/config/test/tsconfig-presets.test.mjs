@@ -34,4 +34,10 @@ describe('tsconfig presets', () => {
     expect(parsed.options.outDir).toBe(path.join(pkg, 'dist'));
     expect(parsed.options.rootDir).toBe(path.join(pkg, 'src'));
   });
+
+  it('nest.json leaves incrementality to turbo, so typecheck writes no tsbuildinfo into dist', () => {
+    const { parsed } = parseExtending('nest.json');
+    expect(parsed.options.incremental).toBeUndefined();
+    expect(parsed.options.composite).toBeUndefined();
+  });
 });

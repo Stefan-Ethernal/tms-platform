@@ -10,7 +10,6 @@
     "strictPropertyInitialization": false,
     "declaration": false,
     "removeComments": true,
-    "incremental": true,
     "types": ["node", "jest"]
   }
 }
