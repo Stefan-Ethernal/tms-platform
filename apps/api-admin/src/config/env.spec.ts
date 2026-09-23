@@ -17,6 +17,10 @@ describe('loadEnv', () => {
     expect(() => loadEnv({ NODE_ENV: 'staging' })).toThrow(/NODE_ENV/);
   });
 
+  it('names every offending variable', () => {
+    expect(() => loadEnv({ NODE_ENV: 'staging', PORT: 'abc' })).toThrow(/NODE_ENV: .*; PORT: /);
+  });
+
   it('ignores unrelated variables', () => {
     expect(loadEnv({ HOME: '/home/x', PATH: '/bin' })).toEqual({
       NODE_ENV: 'development',
