@@ -49,7 +49,6 @@ catalog:
   msw: ^2.15.0
 
 allowBuilds:
-  esbuild: true
   msw: true
   '@parcel/watcher': true
   unrs-resolver: true
