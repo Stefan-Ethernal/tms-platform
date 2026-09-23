@@ -30,7 +30,15 @@
       "Bash(git log:*)",
       "Bash(git branch --show-current)"
     ],
-    "deny": ["Edit(/docs/client/**)", "Edit(/.env)", "Edit(/**/.env)"]
+    "deny": [
+      "Edit(/docs/client/**)",
+      "Edit(/.env)",
+      "Edit(/**/.env)",
+      "Edit(/**/.env.local)",
+      "Edit(/**/.env.development)",
+      "Edit(/**/.env.test)",
+      "Edit(/**/.env.production)"
+    ]
   },
   "extraKnownMarketplaces": {
     "tms": { "source": { "source": "directory", "path": "./tools/claude-plugin" } }
