@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "Shared tsconfig, eslint, jest and vitest presets for the TMS platform monorepo",
+  "description": "Shared tsconfig, eslint and jest presets for the TMS platform monorepo",
   "exports": {
     "./tsconfig/*": "./tsconfig/*",
     "./eslint/node": "./eslint/node.mjs",
