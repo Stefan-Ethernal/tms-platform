@@ -28,6 +28,16 @@ export function registerSmokeSuite({
       }
     });
 
+    test('answers a browser navigation to bare /api from the API, not with index.html', async ({
+      page,
+    }) => {
+      // page.goto sends what a browser sends (Accept: text/html, Sec-Fetch-Mode: navigate), the
+      // request shape of the bare-/api bug; the `request` fixture above is a Node-side client.
+      const res = await page.goto('/api');
+      expect(res?.status()).toBe(404);
+      expect(res?.headers()['content-type']).toContain('application/json');
+    });
+
     test('deep links fall back to the SPA, not to a 404', async ({ page }) => {
       const res = await page.goto('/some/client/route');
       expect(res?.status()).toBe(200);
