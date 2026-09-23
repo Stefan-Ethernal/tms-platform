@@ -1,0 +1,53 @@
+name: E2E
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: e2e-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  e2e:
+    name: e2e
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Start the full stack
+        run: |
+          cp infra/.env.example infra/.env
+          pnpm compose --profile full up -d --build
+      - name: Smoke test the stack
+        run: infra/smoke.sh --full
+      - name: Install Chromium with OS dependencies
+        run: pnpm --filter @tms/e2e exec playwright install --with-deps chromium
+      - name: Playwright
+        run: pnpm e2e
+        env:
+          CI: 'true'
+      - name: Compose logs on failure
+        if: failure()
+        run: pnpm compose --profile full logs --no-color
+      - uses: actions/upload-artifact@v7
+        if: failure()
+        with:
+          name: playwright-report
+          path: |
+            e2e/playwright-report
+            e2e/test-results
+          retention-days: 7
+      - name: Stop the stack
+        if: always()
+        run: pnpm compose --profile full down -v
