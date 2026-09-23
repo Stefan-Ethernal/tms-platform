@@ -14,11 +14,15 @@ const run = (script, input, env = {}) =>
   });
 
 describe('protect-files.mjs', () => {
+  // For the file tools (Write, Edit, Read, NotebookEdit) Claude Code always sends an absolute
+  // tool_input.file_path/notebook_path, never one relative to cwd (9-M5); build fixtures the same
+  // way so a regression that only shows up on absolute paths isn't masked by the fixture shape.
+  const cwd = '/work/p';
   it('exits 2 with a reason for a protected path', () => {
     const r = run('protect-files.mjs', {
       tool_name: 'Write',
-      tool_input: { file_path: '.env' },
-      cwd: '/work/p',
+      tool_input: { file_path: path.join(cwd, '.env') },
+      cwd,
     });
     expect(r.status).toBe(2);
     expect(r.stderr).toContain('.env');
@@ -27,15 +31,15 @@ describe('protect-files.mjs', () => {
     expect(
       run('protect-files.mjs', {
         tool_name: 'Edit',
-        tool_input: { file_path: 'src/a.ts' },
-        cwd: '/work/p',
+        tool_input: { file_path: path.join(cwd, 'src/a.ts') },
+        cwd,
       }).status,
     ).toBe(0);
     expect(
       run('protect-files.mjs', {
         tool_name: 'NotebookEdit',
-        tool_input: { notebook_path: 'docs/client/a.ipynb' },
-        cwd: '/work/p',
+        tool_input: { notebook_path: path.join(cwd, 'docs/client/a.ipynb') },
+        cwd,
       }).status,
     ).toBe(2);
   });
