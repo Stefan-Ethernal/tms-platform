@@ -22,6 +22,6 @@ the datasource URL). Schema and migrations live in `packages/db`; enums are defi
 
 ## Consequences
 
-`prisma migrate deploy` in the compose `migrate` one-shot and in `predev`; CI drift check
-`migrate diff --from-config-datasource --to-schema`. Prisma 8 is an rc at the time of writing;
-the catalog pins `^7.10.0`.
+Migrations run as a separate step (D12): the compose `migrate` one-shot and `predev`; CI checks
+drift with `prisma migrate diff`. Prisma 7 is the chosen major (8 was an rc at the time of
+writing).
