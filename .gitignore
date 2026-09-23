@@ -31,8 +31,9 @@ e2e/.auth/
 !.vscode/extensions.json
 .DS_Store
 
-# Claude Code local settings
+# Claude Code local settings and agent process artefacts (ledgers, briefs, review packages)
 .claude/settings.local.json
+.superpowers/
 
 # Tool caches and generated code
 .cache/

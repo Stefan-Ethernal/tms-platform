@@ -7,7 +7,6 @@ pnpm-lock.yaml
 docs/client
 docs/superpowers
 docs/efficiency
-.superpowers
 **/generated
 playwright-report
 test-results

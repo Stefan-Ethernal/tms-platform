@@ -7,6 +7,7 @@ node_modules
 **/generated
 .cache
 docs
+.superpowers
 **/playwright-report
 **/test-results
 **/.env
