@@ -21,18 +21,20 @@ flowchart TB
   subgraph origin_admin[Origin :8080 — Caddy]
     web_admin[web-admin SPA] --- api_admin[api-admin NestJS :3001]
   end
-  subgraph origin_kiosk[Origin :8081 — Caddy, isolated terminal network]
-    web_driver[web-driver SPA + /display] --- api_driver[api-driver NestJS :3002]
+  subgraph origin_kiosk[Origin :8081 — Caddy]
+    web_driver["web-driver SPA (+ /display, phase 7)"] --- api_driver[api-driver NestJS :3002]
   end
   api_admin --> db[(PostgreSQL 16)]
   api_driver --> db
-  migrate[migrate one-shot: prisma migrate deploy + permission sync] --> db
-  api_admin --> mailpit[(Mailpit / SMTP)]
+  migrate["migrate one-shot: prisma migrate deploy (+ permission sync, phase 1)"] --> db
+  api_admin -. phase 2 .-> mailpit[(Mailpit / SMTP)]
 ```
 
 Two NestJS processes share `contracts`, `db`, `auth-core` and `domain` through workspace packages
 (ADR-0001). Each SPA and its API sit behind one origin: Caddy in compose, Vite's dev proxy locally
-(D11). Migrations run only in the one-shot `migrate` service or `predev`, never in an app (D12).
+(D11). Migrations run only in the one-shot `migrate` service or `predev`, never in an app (D12). In
+production the kiosk origin runs on an isolated terminal network; the compose stack serves both
+origins from one Caddy container on one Docker network.
 
 ## Dependency rule
 
@@ -42,13 +44,13 @@ Two NestJS processes share `contracts`, `db`, `auth-core` and `domain` through w
 
 ## Environments
 
-|            | Development                          | Compose `full` / production                |
-| ---------- | ------------------------------------ | ------------------------------------------ |
-| SPA        | Vite dev server :5173 / :5174        | static files served by Caddy               |
-| `/api`     | Vite `server.proxy` to :3001 / :3002 | Caddy `reverse_proxy` to the API container |
-| Database   | compose `postgres`                   | compose `postgres` (volume `pgdata`)       |
-| Migrations | `pnpm dev` → `predev`                | `migrate` one-shot, apps wait for it       |
-| Email      | Mailpit :8025                        | SMTP from env                              |
+|            | Development                          | Compose `full` / production                         |
+| ---------- | ------------------------------------ | --------------------------------------------------- |
+| SPA        | Vite dev server :5173 / :5174        | static files served by Caddy                        |
+| `/api`     | Vite `server.proxy` to :3001 / :3002 | Caddy `reverse_proxy` to the API container          |
+| Database   | compose `postgres`                   | compose `postgres` (volume `pgdata`)                |
+| Migrations | `pnpm dev` → `predev`                | `migrate` one-shot, apps wait for it                |
+| Email      | Mailpit :8025                        | compose `full`: Mailpit · production: SMTP from env |
 
 ## Data model — phase 1 (ERD generated from `schema.prisma`)
 
