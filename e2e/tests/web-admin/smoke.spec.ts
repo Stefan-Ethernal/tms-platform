@@ -1,3 +1,3 @@
 import { registerSmokeSuite } from '../support/smoke.js';
 
-registerSmokeSuite({ name: 'web-admin', title: 'TMS Admin', api: 'api-admin' });
+registerSmokeSuite({ name: 'web-admin', title: 'TMS Admin' });

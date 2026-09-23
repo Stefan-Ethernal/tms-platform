@@ -1,14 +1,6 @@
 import { expect, test } from '@playwright/test';
 
-export function registerSmokeSuite({
-  name,
-  title,
-  api,
-}: {
-  name: string;
-  title: string;
-  api: string;
-}): void {
+export function registerSmokeSuite({ name, title }: { name: string; title: string }): void {
   test.describe(`${name} smoke`, () => {
     test(`serves the SPA on the ${name} origin`, async ({ page }) => {
       await page.goto('/');
@@ -16,7 +8,9 @@ export function registerSmokeSuite({
       await expect(page.getByTestId('app-root')).toBeAttached();
     });
 
-    test(`forwards /api to ${api} on the same origin (D11)`, async ({ request }) => {
+    // Proves the origin forwards /api to a Nest API; both APIs answer alike, so which one is not
+    // proven here (phase 1 asserts the service name from D5 `/health` per origin).
+    test('forwards /api to a Nest API on the same origin (D11)', async ({ request }) => {
       for (const path of ['/api', '/api/does-not-exist']) {
         const res = await request.get(path);
         expect(res.status()).toBe(404);
