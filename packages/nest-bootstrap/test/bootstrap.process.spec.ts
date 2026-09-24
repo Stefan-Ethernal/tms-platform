@@ -27,7 +27,7 @@ describe('bootstrapApi in a real Node process', () => {
     // 0 would make Node pick a random port; the schema refuses it before listen().
     ['0', 'PORT: Too small: expected number to be >=1'],
   ])('PORT=%s exits 1 with one stderr line, no stack trace and no module built', (port, detail) => {
-    const result = runMain({ PORT: port });
+    const result = runMain({ PORT: port, DATABASE_URL: 'postgresql://tms:tms@127.0.0.1:9/tms' });
     expect(result.status).toBe(1);
     expect(result.stderr).toBe(`api-admin: Invalid environment: ${detail}\n`);
     expect(result.stdout).toBe('');

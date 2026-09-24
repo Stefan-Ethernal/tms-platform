@@ -2,6 +2,8 @@ import { Test } from '@nestjs/testing';
 import { Controller, Get, type INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import type { App } from 'supertest/types';
+import { PrismaService } from '@tms/db/nest';
+import { testDatabaseUrl } from '@tms/db/testing';
 import { configureApp, loadEnv } from '@tms/nest-bootstrap';
 import { AppModule, envSchema } from '../src/app.module';
 
@@ -21,7 +23,11 @@ describe('api-driver skeleton (e2e)', () => {
   let sigtermListenersBefore: number;
 
   beforeAll(async () => {
-    const env = loadEnv(envSchema, { LOG_LEVEL: 'silent', LOG_FILE_ENABLED: 'false' });
+    const env = loadEnv(envSchema, {
+      DATABASE_URL: testDatabaseUrl(),
+      LOG_LEVEL: 'silent',
+      LOG_FILE_ENABLED: 'false',
+    });
     const moduleRef = await Test.createTestingModule({
       imports: [AppModule.forRoot(env)],
       controllers: [ProbeController],
@@ -29,6 +35,11 @@ describe('api-driver skeleton (e2e)', () => {
     sigtermListenersBefore = process.listenerCount('SIGTERM');
     app = configureApp(moduleRef.createNestApplication());
     await app.init();
+    // Prisma connects lazily; without this the /api/health test below would be the pool's first
+    // ever query and would race a cold TCP+auth handshake against HEALTH_DB_TIMEOUT_MS (1000ms
+    // default) instead of testing whether the endpoint reports a reachable database. Untimed here
+    // on purpose: this is connection setup, not the bound the health check itself is meant to test.
+    await app.get(PrismaService).$queryRaw`SELECT 1`;
   });
 
   afterAll(async () => {
@@ -58,5 +69,11 @@ describe('api-driver skeleton (e2e)', () => {
 
   it('listens for SIGTERM so a container stops gracefully', () => {
     expect(process.listenerCount('SIGTERM')).toBe(sigtermListenersBefore + 1);
+  });
+
+  it('answers GET /api/health with 200, the service name and no-store', async () => {
+    const res = await request(app.getHttpServer()).get('/api/health').expect(200);
+    expect(res.text).toBe('{"status":"ok","service":"api-driver"}');
+    expect(res.headers['cache-control']).toBe('no-store');
   });
 });

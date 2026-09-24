@@ -13,6 +13,7 @@ describe('CoreModule.forRoot (file logging on, the default)', () => {
 
   beforeAll(async () => {
     const env = loadEnv(createEnvSchema({ defaultPort: 3001 }), {
+      DATABASE_URL: 'postgresql://tms:tms@127.0.0.1:9/tms',
       LOG_LEVEL: 'silent',
       LOG_DIR: logDir,
     });

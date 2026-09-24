@@ -1,3 +1,3 @@
 import { registerSmokeSuite } from '../support/smoke.js';
 
-registerSmokeSuite({ name: 'web-driver', title: 'TMS Kiosk' });
+registerSmokeSuite({ name: 'web-driver', title: 'TMS Kiosk', service: 'api-driver' });

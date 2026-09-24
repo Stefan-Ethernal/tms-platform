@@ -34,7 +34,11 @@ describe('bootstrapApi', () => {
       name: 'api-admin',
       envSchema,
       module,
-      source: { PORT: 'abc', NODE_ENV: 'staging' },
+      source: {
+        PORT: 'abc',
+        NODE_ENV: 'staging',
+        DATABASE_URL: 'postgresql://tms:tms@127.0.0.1:9/tms',
+      },
       stderr: { write: (message: string) => written.push(message) },
     });
 
@@ -54,7 +58,12 @@ describe('bootstrapApi', () => {
       name: 'api-admin',
       envSchema,
       module,
-      source: { PORT: String(port), LOG_LEVEL: 'silent', LOG_FILE_ENABLED: 'false' },
+      source: {
+        PORT: String(port),
+        LOG_LEVEL: 'silent',
+        LOG_FILE_ENABLED: 'false',
+        DATABASE_URL: 'postgresql://tms:tms@127.0.0.1:9/tms',
+      },
     });
     try {
       expect(module).toHaveBeenCalledWith({
@@ -63,6 +72,8 @@ describe('bootstrapApi', () => {
         LOG_FILE_ENABLED: false,
         LOG_DIR: 'logs',
         LOG_RETENTION_DAYS: 14,
+        DATABASE_URL: 'postgresql://tms:tms@127.0.0.1:9/tms',
+        HEALTH_DB_TIMEOUT_MS: 1000,
         PORT: port,
       });
       // NODE_ENV defaults to development, so listenHost() binds the loopback interface only.
