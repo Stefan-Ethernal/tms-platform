@@ -1,0 +1,5 @@
+{
+  "extends": "@tms/config/tsconfig/library.json",
+  "compilerOptions": { "rootDir": ".", "noEmit": true, "types": [] },
+  "include": ["src", "test"]
+}

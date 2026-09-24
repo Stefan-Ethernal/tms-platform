@@ -54,6 +54,17 @@ silently, which a fresh clone or a stale `dist/` can hit locally. The turbo `lin
 and direct `@nestjs/*`/`@prisma/*` imports get their own `no-restricted-imports` rule when the
 package lands (phase 2) — boundaries does not check npm-package specifiers.
 
+## Packages and module format
+
+Nest-aware libraries (`db`, `logger`, `nest-bootstrap`, `domain`) compile to CommonJS
+(`@tms/config/tsconfig/nest-library.json`) like the two apps, so dual-build dependencies such as
+`nestjs-cls` and `@sentry/nestjs` load exactly once per process. `contracts` (and later `ui`) is
+ESM (`library.json`, `.js` extensions on relative imports) because the Vite SPAs import it; the
+CommonJS apps and libraries load it through Node's `require(esm)` (Node 22.12+, no top-level
+`await` allowed in the package). Every package `exports` entry carries `types` + `default`, never
+`import` only, so both module systems and TypeScript's `nodenext` resolution land on the same file;
+subpaths (`./security`, `./audit`) are the only deep imports the exports map allows.
+
 ## Environments
 
 |            | Development                          | Compose `full` / production                         |
