@@ -51,6 +51,12 @@ administrator comes from `BOOTSTRAP_ADMIN_EMAIL` / `BOOTSTRAP_ADMIN_USERNAME` in
 gitleaks. CI runs the same plus a Prisma drift check and the Playwright suite against the compose
 stack. Every pull request records what was actually verified (see the PR template).
 
+## Observability
+
+- Logs: JSON on stdout and, unless `LOG_FILE_ENABLED=false`, rolling files `LOG_DIR/<app>/<app>.<yyyy-MM-dd>.<n>.log`
+  (daily, `LOG_RETENTION_DAYS` rotated files kept); secrets are redacted with the shared rules from `@tms/contracts`.
+- Every API response carries `X-Request-Id` (a well-formed caller value is kept); log lines of that request carry the same id.
+
 ## Repository layout
 
 | Path                                | Content                                                                                                  |
