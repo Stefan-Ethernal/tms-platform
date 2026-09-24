@@ -38,12 +38,32 @@ origins from one Caddy container on one Docker network.
 
 ## Dependency rule
 
-`contracts <- db <- domain <- apps`, enforced by `eslint-plugin-boundaries`
-(`packages/config/eslint/base.mjs`). `api-driver` may import only `@tms/domain/checkin` and
-`@tms/domain/shared` (`no-restricted-imports` in its eslint config). `auth-core` is Nest-free and
-Prisma-free by convention; boundaries stops it importing `db`/`domain`, and direct
-`@nestjs/*`/`@prisma/*` imports get their own `no-restricted-imports` rule when the package lands
-(phase 2) — boundaries itself does not check npm-package specifiers.
+`contracts <- db <- domain <- apps`, plus `contracts, db, logger <- bootstrap <- api` (`bootstrap`
+is `packages/nest-bootstrap`, the shared Nest bootstrap). Apps are two element types: `api`
+(`apps/api-*`) may import `contracts`, `db`, `auth-core`, `logger`, `domain` and `bootstrap`; `web`
+(`apps/web-*`) only `contracts` and `ui`. Enforced by `eslint-plugin-boundaries`
+(`packages/config/eslint/base.mjs`) for relative imports and `@tms/*` package specifiers alike:
+`eslint-import-resolver-typescript` follows each package's `exports` and pnpm's symlinks to the
+real file, so a forbidden import is reported however it is written, provided the imported
+package's `dist/` has been built; an unresolved specifier is treated as external and passes
+silently, which a fresh clone or a stale `dist/` can hit locally. The turbo `lint` task depends on
+`^build`, and CI always builds first, so the gate holds there
+(`packages/config/test/eslint-boundaries-packages.test.mjs`). `api-driver` may import only
+`@tms/domain/checkin` and `@tms/domain/shared` (`no-restricted-imports` in its eslint config).
+`auth-core` is Nest-free and Prisma-free by convention; boundaries stops it importing `db`/`domain`,
+and direct `@nestjs/*`/`@prisma/*` imports get their own `no-restricted-imports` rule when the
+package lands (phase 2) — boundaries does not check npm-package specifiers.
+
+## Packages and module format
+
+Nest-aware libraries (`db`, `logger`, `nest-bootstrap`, `domain`) compile to CommonJS
+(`@tms/config/tsconfig/nest-library.json`) like the two apps, so dual-build dependencies such as
+`nestjs-cls` and `@sentry/nestjs` load exactly once per process. `contracts` (and later `ui`) is
+ESM (`library.json`, `.js` extensions on relative imports) because the Vite SPAs import it; the
+CommonJS apps and libraries load it through Node's `require(esm)` (Node 22.12+, no top-level
+`await` allowed in the package). Every package `exports` entry carries `types` + `default`, never
+`import` only, so both module systems and TypeScript's `nodenext` resolution land on the same file;
+subpaths (`./security`, `./audit`) are the only deep imports the exports map allows.
 
 ## Environments
 
@@ -70,3 +90,16 @@ Prisma-free by convention; boundaries stops it importing `db`/`domain`, and dire
 See spec section 13. Phase 0 provides: Jest (unit + supertest e2e-spec) per API, Vitest per SPA
 and tooling package, Playwright smoke against the compose `full` profile, CI jobs `verify`,
 `hygiene`, `db-drift`, `e2e`.
+
+Database tests (phase 1): a Jest project that uses `createJestConfig({ rootDir, database: true })`
+(`@tms/config/jest`) runs the Testcontainers harness from `@tms/db/testing`
+(`packages/db/src/testing`). Its `globalSetup` starts one `postgres:18-alpine` container per run
+(the compose image, kept equal by a test), creates `tms_template`, applies the migrations once with
+the package's own `prisma migrate deploy`, and clones `tms_w1` … `tms_wN` from it with
+`CREATE DATABASE … TEMPLATE` (N = max(2, Jest workers); two workers in CI). A test gets its
+database from `testDatabaseUrl()` (derived from `JEST_WORKER_ID` at run time, because Jest may run
+several files in one worker) and calls `resetTestDatabase()` in `beforeEach` (`TRUNCATE … RESTART
+IDENTITY CASCADE`, `_prisma_migrations` kept). `globalTeardown` stops the container; Ryuk removes
+whatever a killed run leaves behind. Tests never read `DATABASE_URL`, so they cannot reach the
+development database. The fixed cost is about 3.5 s per Jest project (container 2.2 s, migrations
+1 s, 40 ms per clone). Docker is therefore required for `pnpm verify`, the pre-push hook and CI.

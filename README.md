@@ -8,10 +8,14 @@ end of the POC).
 
 ## Prerequisites
 
-- Node 26 (`.nvmrc`) and the pnpm version pinned in `package.json#packageManager`. Node 26 no
-  longer ships corepack, so install it from the repository root, as the Dockerfiles do:
+- Node 26 (`.nvmrc`; `engines` enforces it) and the pnpm version pinned in
+  `package.json#packageManager`. Node 26 no longer ships corepack, so install it from the
+  repository root, as the Dockerfiles do:
   `npm install -g "$(node -p "require('./package.json').packageManager")"`
-- Docker with Compose v2 (used for Postgres, Mailpit, migrations and the production-like stack)
+- Docker with Compose v2 and the daemon running (`docker info` succeeds): Postgres, Mailpit,
+  migrations and the production-like stack, and the Testcontainers Postgres that database tests
+  start in `pnpm verify`, the pre-push hook and CI `verify` (without it they stop with
+  "Testcontainers could not reach Docker")
 - Claude Code 2.1+ with the Claude in Chrome extension for visual verification (optional). If the
   `claude` binary is not on `PATH` in your shell, set `CLAUDE_BIN=~/.local/bin/claude`.
 

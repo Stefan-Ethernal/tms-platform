@@ -19,6 +19,7 @@ catalog:
   '@eslint/js': ^10.0.1
   typescript-eslint: ^8.70.1
   eslint-plugin-boundaries: ^7.2.0
+  eslint-import-resolver-typescript: ^4.4.5
   eslint-config-prettier: ^10.1.8
   eslint-plugin-react-hooks: ^7.1.1
   eslint-plugin-react-refresh: ^0.5.7
@@ -30,6 +31,7 @@ catalog:
   '@commitlint/cli': ^21.2.3
   '@commitlint/config-conventional': ^21.2.3
   vitest: ^5.0.1
+  fast-check: ^4.10.2
   zod: ^4.6.5
   dotenv: ^18.0.3
   # nest
@@ -59,8 +61,13 @@ catalog:
   '@testing-library/dom': ^10.4.2
   msw: ^2.15.0
   '@playwright/test': ^1.63.0
+  # testing (Testcontainers pinned exactly: the harness was verified against 12.1.0)
+  testcontainers: 12.1.0
+  '@testcontainers/postgresql': 12.1.0
   # data
   prisma: ^7.10.0
+  pg: ^8.23.0
+  '@types/pg': ^8.23.1
 
 # Nest CLI's build/schematics engine resolves "typescript" from the target app's own
 # devDependency (not from its own package), and its programmatic compiler API doesn't
@@ -78,6 +85,10 @@ allowBuilds:
   msw: true
   '@parcel/watcher': true
   unrs-resolver: true
+  # testcontainers' optional native helpers; the harness works with them unbuilt (spike S3)
+  ssh2: false
+  cpu-features: false
+  protobufjs: false
 
 minimumReleaseAgeExclude:
   - '@turbo/darwin-64@2.11.3'

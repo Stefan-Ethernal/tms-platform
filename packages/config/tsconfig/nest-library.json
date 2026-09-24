@@ -1,0 +1,19 @@
+{
+  // CommonJS on purpose: nestjs-cls, @nestjs-cls/* and zod ship dual builds, so an ESM library
+  // next to the CommonJS apps would load a second copy (a second TransactionHost class).
+  // Not based on library.json: verbatimModuleSyntax rejects CommonJS output (TS1287, TS1295).
+  // ${configDir} is the directory of the extending tsconfig, so dist/ and src/ are the package's.
+  "extends": "./base.json",
+  "compilerOptions": {
+    "module": "nodenext",
+    "moduleResolution": "nodenext",
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    "strictPropertyInitialization": false,
+    "declaration": true,
+    "declarationMap": true,
+    "types": ["node"],
+    "outDir": "${configDir}/dist",
+    "rootDir": "${configDir}/src"
+  }
+}

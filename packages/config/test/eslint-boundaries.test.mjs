@@ -51,10 +51,15 @@ const elements = {
   logger: 'packages/logger',
   domain: 'packages/domain',
   ui: 'packages/ui',
-  app: 'apps/api-admin',
+  bootstrap: 'packages/nest-bootstrap',
+  api: 'apps/api-admin',
+  web: 'apps/web-admin',
 };
 
-/** Spec section 3 (contracts <- db <- domain <- apps): which element types each type may import. */
+/**
+ * Spec section 3 (contracts <- db <- domain <- apps) with the phase 1 `bootstrap` element and apps
+ * split into `api` and `web`: which element types each type may import.
+ */
 const allowed = {
   contracts: [],
   db: ['contracts'],
@@ -62,10 +67,12 @@ const allowed = {
   logger: ['contracts'],
   domain: ['contracts', 'db', 'auth-core', 'logger'],
   ui: ['contracts'],
-  app: ['contracts', 'db', 'auth-core', 'logger', 'domain', 'ui'],
+  bootstrap: ['contracts', 'db', 'logger'],
+  api: ['contracts', 'db', 'auth-core', 'logger', 'domain', 'bootstrap'],
+  web: ['contracts', 'ui'],
 };
 
-/** The full 7x7 matrix; the diagonal is an import inside the same package, always allowed. */
+/** The full 9x9 matrix; the diagonal is an import inside the same package, always allowed. */
 const matrix = Object.keys(elements).flatMap((from) =>
   Object.keys(elements).map((to) => ({
     from,
@@ -82,6 +89,16 @@ describe('dependency rule contracts <- db <- domain <- apps', () => {
     );
     expect(errors(messages, 'boundaries/dependencies').map((m) => m.message)).toEqual([
       'db may not import domain (dependency rule contracts <- db <- domain <- apps)',
+    ]);
+  });
+
+  it('forbids a web app importing db, naming the web element', async () => {
+    const messages = await lint(
+      'apps/web-admin/src/x.ts',
+      `import { db } from '../../../packages/db/src/index';\nexport { db };\n`,
+    );
+    expect(errors(messages, 'boundaries/dependencies').map((m) => m.message)).toEqual([
+      'web may not import db (dependency rule contracts <- db <- domain <- apps)',
     ]);
   });
 
