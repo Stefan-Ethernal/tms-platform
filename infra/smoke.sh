@@ -66,11 +66,11 @@ echo "ok   migrate is idempotent (second run created nothing; row counts and syn
 wait_http mailpit "http://localhost:${MAILPIT_UI_PORT:-8025}/api/v1/info"
 
 if [ "${1:-}" = "--full" ]; then
-  check_origin() { # name port title
+  check_origin() { # name port title service
     wait_http "$1" "http://localhost:$2/"
     curl -fsS "http://localhost:$2/" | grep -q "<title>$3</title>" || fail "$1: title '$3' not served"
     echo "ok   $1 serves the SPA"
-    # Caddy starts before Nest has bound its port (depends_on = started), so retry until the API answers.
+    # Caddy waits for healthy APIs; the retries only absorb Caddy's own start-up.
     code=""
     for _ in $(seq 1 30); do
       code=$(curl -s -o /dev/null -w '%{http_code}' "http://localhost:$2/api/does-not-exist")
@@ -95,9 +95,34 @@ if [ "${1:-}" = "--full" ]; then
     echo "$headers" | grep -qi '^content-type: application/json' \
       || fail "$1: bare /api did not return JSON (got headers: $headers)"
     echo "ok   $1 forwards bare /api to the API (JSON 404, not index.html)"
+    # D5 + routing identity (journal I7-1): exactly {"status":"ok","service":"<api>"} with 200,
+    # never cached, so the kiosk origin provably reaches api-driver and the back office api-admin.
+    health=$(curl -sS -w ' %{http_code}' "http://localhost:$2/api/health")
+    expected="{\"status\":\"ok\",\"service\":\"$4\"} 200"
+    [ "$health" = "$expected" ] || fail "$1: /api/health answered '$health', expected '$expected'"
+    headers=$(curl -sS -D- -o /dev/null "http://localhost:$2/api/health")
+    echo "$headers" | grep -qi '^cache-control: no-store' || fail "$1: /api/health lacks Cache-Control: no-store"
+    echo "ok   $1 /api/health answers 200 from $4 with no-store"
   }
-  check_origin web-admin "${CADDY_ADMIN_PORT:-8080}" "TMS Admin"
-  check_origin web-driver "${CADDY_KIOSK_PORT:-8081}" "TMS Kiosk"
+  # D12 ordering proof (journal M6-6): both APIs started only after migrate finished with exit 0.
+  # Docker's timestamps have a variable-length fraction, so they are compared as epoch nanoseconds.
+  check_migrate_ordering() {
+    local migrate finished api id started
+    migrate=$(compose ps -aq migrate)
+    [ "$(docker inspect -f '{{.State.ExitCode}}' "$migrate")" = "0" ] || fail "migrate did not exit 0"
+    finished=$(docker inspect -f '{{.State.FinishedAt}}' "$migrate")
+    for api in api-admin api-driver; do
+      id=$(compose ps -q "$api")
+      [ -n "$id" ] || fail "$api is not running"
+      started=$(docker inspect -f '{{.State.StartedAt}}' "$id")
+      [ "$(date -d "$started" +%s%N)" -gt "$(date -d "$finished" +%s%N)" ] \
+        || fail "$api started at $started, before migrate finished at $finished"
+    done
+    echo "ok   api-admin and api-driver started after migrate finished ($finished)"
+  }
+  check_migrate_ordering
+  check_origin web-admin "${CADDY_ADMIN_PORT:-8080}" "TMS Admin" api-admin
+  check_origin web-driver "${CADDY_KIOSK_PORT:-8081}" "TMS Kiosk" api-driver
 
   # D14: each API writes JSON log files into the shared `logs` volume, one directory per app.
   check_log_file() { # service

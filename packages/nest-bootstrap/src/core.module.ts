@@ -1,6 +1,8 @@
 import { type DynamicModule, Module } from '@nestjs/common';
+import { PrismaModule } from '@tms/db/nest';
 import { createLoggerModule, type LoggerOptions } from '@tms/logger';
 import type { BaseEnv } from './env';
+import { HealthModule } from './health/health.module';
 
 /** The two deployables; also the name of each app's log directory and files. */
 export type ApiName = LoggerOptions['app'];
@@ -25,6 +27,8 @@ export class CoreModule {
             retentionDays: env.LOG_RETENTION_DAYS,
           },
         }),
+        PrismaModule.forRoot({ url: env.DATABASE_URL }),
+        HealthModule.forRoot({ service: app, dbTimeoutMs: env.HEALTH_DB_TIMEOUT_MS }),
       ],
     };
   }

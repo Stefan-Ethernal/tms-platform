@@ -372,6 +372,20 @@ UUID is minted; the id is echoed on the response, logged as `req.id` on `request
 `LoggerShutdown` ends the file transport on `app.close()` (SIGTERM via `enableShutdownHooks()`);
 nestjs-pino alone would drop buffered lines.
 
+**Health.** Both APIs serve `GET /api/health` from `HealthModule` in `@tms/nest-bootstrap` (D5):
+`200 {"status":"ok","service":"<api>"}` or `503 {"status":"degraded","service":"<api>"}` (deviation 9);
+`service` proves which API an origin reaches and carries no database detail. `Cache-Control: no-store`, marked
+public through `PUBLIC_ROUTE_KEY` for the phase 3a guard, never auto-logged. The only check is
+`SELECT 1` through the shared global `PrismaService` (`@tms/db/nest`), raced against
+`HEALTH_DB_TIMEOUT_MS` (default 1000 ms) and reported through terminus' `HealthIndicatorService`
+(`HealthCheckService` cannot produce this body). The pool's own connect timeout (5000 ms) bounds the
+connection attempt behind it, so a black-holed database answers 503 after about one second instead of
+hanging. A failed ping logs one `warn` with the scrubbed reason, never the URL. Prisma connects lazily:
+an API boots while the database is down and recovers without a restart. Compose healthchecks call the
+endpoint with `node -e "fetch(...)"` (the images have no curl), the APIs restart `unless-stopped`, Caddy
+starts only when both APIs are healthy, and `infra/smoke.sh --full` proves both APIs started after
+`migrate` finished.
+
 ## Testing strategy
 
 See spec section 13. Phase 0 provides: Jest (unit + supertest e2e-spec) per API, Vitest per SPA

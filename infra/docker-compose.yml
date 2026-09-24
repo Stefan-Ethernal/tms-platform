@@ -75,6 +75,20 @@ services:
       - /tmp
     volumes:
       - logs:/var/log/tms
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://127.0.0.1:'+process.env.PORT+'/api/health').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))",
+        ]
+      interval: 10s
+      timeout: 3s
+      retries: 6
+      start_period: 20s
+    # Journal M6-6: a crashed API comes back; `migrate` keeps restart: 'no' (one-shot).
+    restart: unless-stopped
     depends_on:
       migrate:
         condition: service_completed_successfully
@@ -97,6 +111,20 @@ services:
       - /tmp
     volumes:
       - logs:/var/log/tms
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://127.0.0.1:'+process.env.PORT+'/api/health').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))",
+        ]
+      interval: 10s
+      timeout: 3s
+      retries: 6
+      start_period: 20s
+    # Journal M6-6: a crashed API comes back; `migrate` keeps restart: 'no' (one-shot).
+    restart: unless-stopped
     depends_on:
       migrate:
         condition: service_completed_successfully
@@ -111,8 +139,10 @@ services:
       - '${CADDY_ADMIN_PORT:-8080}:8080'
       - '${CADDY_KIOSK_PORT:-8081}:8081'
     depends_on:
-      - api-admin
-      - api-driver
+      api-admin:
+        condition: service_healthy
+      api-driver:
+        condition: service_healthy
 
 volumes:
   pgdata:

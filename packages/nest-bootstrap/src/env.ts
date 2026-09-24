@@ -15,6 +15,14 @@ export const baseEnvSchema = z.object({
   LOG_FILE_ENABLED: z.stringbool().default(true),
   LOG_DIR: z.string().min(1).default('logs'),
   LOG_RETENTION_DAYS: z.coerce.number().int().min(1).max(365).default(14),
+  // Required. The message never echoes the value: it may carry a password.
+  DATABASE_URL: z.url({
+    protocol: /^postgres(ql)?$/,
+    hostname: /^.+$/,
+    error: 'must be a postgresql:// URL',
+  }),
+  // Upper bound of the database ping behind GET /api/health (D5).
+  HEALTH_DB_TIMEOUT_MS: z.coerce.number().int().min(100).max(10_000).default(1000),
 });
 
 /** The schema of one API: the shared variables plus PORT with the app's default. */

@@ -1,6 +1,14 @@
 import { expect, test } from '@playwright/test';
 
-export function registerSmokeSuite({ name, title }: { name: string; title: string }): void {
+export function registerSmokeSuite({
+  name,
+  title,
+  service,
+}: {
+  name: string;
+  title: string;
+  service: 'api-admin' | 'api-driver';
+}): void {
   test.describe(`${name} smoke`, () => {
     test(`serves the SPA on the ${name} origin`, async ({ page }) => {
       await page.goto('/');
@@ -8,8 +16,7 @@ export function registerSmokeSuite({ name, title }: { name: string; title: strin
       await expect(page.getByTestId('app-root')).toBeAttached();
     });
 
-    // Proves the origin forwards /api to a Nest API; both APIs answer alike, so which one is not
-    // proven here (phase 1 asserts the service name from D5 `/health` per origin).
+    // Proves the origin forwards /api to a Nest API; the health test below proves which one.
     test('forwards /api to a Nest API on the same origin (D11)', async ({ request }) => {
       for (const path of ['/api', '/api/does-not-exist']) {
         const res = await request.get(path);
@@ -20,6 +27,15 @@ export function registerSmokeSuite({ name, title }: { name: string; title: strin
           error: 'Not Found',
         });
       }
+    });
+
+    test(`health endpoint answers ok from ${service} on the ${name} origin`, async ({
+      request,
+    }) => {
+      const res = await request.get('/api/health');
+      expect(res.status()).toBe(200);
+      expect(res.headers()['cache-control']).toBe('no-store');
+      expect(await res.json()).toEqual({ status: 'ok', service });
     });
 
     test('answers a browser navigation to bare /api from the API, not with index.html', async ({

@@ -63,6 +63,8 @@ stack. Every pull request records what was actually verified (see the PR templat
 - Logs: JSON on stdout and, unless `LOG_FILE_ENABLED=false`, rolling files `LOG_DIR/<app>/<app>.<yyyy-MM-dd>.<n>.log`
   (daily, `LOG_RETENTION_DAYS` rotated files kept); secrets are redacted with the shared rules from `@tms/contracts`.
 - Every API response carries `X-Request-Id` (a well-formed caller value is kept); log lines of that request carry the same id.
+- Health: `GET /api/health` answers `200 {"status":"ok","service":"api-admin"}` (or `api-driver`) / `503 {"status":"degraded",...}`
+  (database ping only, bounded by `HEALTH_DB_TIMEOUT_MS`); compose healthchecks, `infra/smoke.sh --full` and Playwright use it.
 
 ## Repository layout
 

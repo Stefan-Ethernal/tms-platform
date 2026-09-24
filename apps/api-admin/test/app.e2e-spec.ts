@@ -2,6 +2,7 @@ import { Test } from '@nestjs/testing';
 import { Controller, Get, type INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import type { App } from 'supertest/types';
+import { testDatabaseUrl } from '@tms/db/testing';
 import { configureApp, loadEnv } from '@tms/nest-bootstrap';
 import { AppModule, envSchema } from '../src/app.module';
 
@@ -21,7 +22,11 @@ describe('api-admin skeleton (e2e)', () => {
   let sigtermListenersBefore: number;
 
   beforeAll(async () => {
-    const env = loadEnv(envSchema, { LOG_LEVEL: 'silent', LOG_FILE_ENABLED: 'false' });
+    const env = loadEnv(envSchema, {
+      DATABASE_URL: testDatabaseUrl(),
+      LOG_LEVEL: 'silent',
+      LOG_FILE_ENABLED: 'false',
+    });
     const moduleRef = await Test.createTestingModule({
       imports: [AppModule.forRoot(env)],
       controllers: [ProbeController],
@@ -58,5 +63,11 @@ describe('api-admin skeleton (e2e)', () => {
 
   it('listens for SIGTERM so a container stops gracefully', () => {
     expect(process.listenerCount('SIGTERM')).toBe(sigtermListenersBefore + 1);
+  });
+
+  it('answers GET /api/health with 200, the service name and no-store', async () => {
+    const res = await request(app.getHttpServer()).get('/api/health').expect(200);
+    expect(res.text).toBe('{"status":"ok","service":"api-admin"}');
+    expect(res.headers['cache-control']).toBe('no-store');
   });
 });

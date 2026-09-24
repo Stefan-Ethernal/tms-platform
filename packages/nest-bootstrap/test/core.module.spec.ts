@@ -26,6 +26,7 @@ describe('CoreModule.forRoot (file logging off)', () => {
   beforeAll(async () => {
     // debug, not the default info: proves LOG_LEVEL travels from the environment to pino.
     const env = loadEnv(createEnvSchema({ defaultPort: 3001 }), {
+      DATABASE_URL: 'postgresql://tms:tms@127.0.0.1:9/tms',
       LOG_LEVEL: 'debug',
       LOG_FILE_ENABLED: 'false',
       LOG_DIR: logDir,
