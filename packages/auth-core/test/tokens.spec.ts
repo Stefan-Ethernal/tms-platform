@@ -24,6 +24,16 @@ describe('tokens', () => {
     expect(() => generateToken(short, 32)).toThrow(RangeError);
   });
 
+  // Re-review finding 6 (LOW): `cryptoRandomSource` is frozen so no importer can replace its
+  // `.bytes` for the whole process and silently make every default-bound caller's randomness
+  // deterministic.
+  it('freezes the default random source', () => {
+    expect(Object.isFrozen(cryptoRandomSource)).toBe(true);
+    expect(() => {
+      cryptoRandomSource.bytes = () => Buffer.alloc(0);
+    }).toThrow(TypeError);
+  });
+
   it('hashes with sha256 hex', () => {
     expect(hashToken('abc')).toBe(
       'ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad',

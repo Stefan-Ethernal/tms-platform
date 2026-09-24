@@ -135,13 +135,19 @@ describe('AesGcmSecretCipher', () => {
   });
 
   // Finding 3 (MEDIUM): key material must not be visible via console.log/util.inspect or
-  // JSON.stringify of the cipher instance (a `#private` field, plus explicit redaction).
+  // JSON.stringify of the cipher instance. `showHidden: true` covers non-enumerable properties
+  // (what `util.inspect` calls "hidden"); true `#private` class fields are not reachable through
+  // any reflection API, which is exactly why this re-review's finding 1 (the previous version of
+  // this test passed even before the fix, because it only searched for the key's own bytes,
+  // which `util.inspect` never renders that way for a `Buffer`) is now closed by asserting the
+  // full rendered/serialised shape instead.
   it('redacts key material from util.inspect and JSON.stringify', () => {
-    const dumped = inspect(cipher);
-    const json = JSON.stringify(cipher);
-    expect(dumped).not.toContain(k1.toString('base64'));
-    expect(dumped).not.toContain(k1.toString('hex'));
-    expect(json).not.toContain(k1.toString('base64'));
+    expect(inspect(cipher, { showHidden: true, depth: Infinity })).not.toMatch(/Buffer|01 01 01/);
+    expect(JSON.parse(JSON.stringify(cipher))).toEqual({
+      activeKeyId: 'k1',
+      keys: '[redacted]',
+    });
+    expect(Object.keys(cipher)).toEqual(['activeKeyId']);
   });
 
   // Finding 2 (MEDIUM): a `RandomSource` that returns too few bytes must not silently produce a
@@ -150,6 +156,48 @@ describe('AesGcmSecretCipher', () => {
     const short: RandomSource = { bytes: () => Buffer.alloc(4) };
     const broken = new AesGcmSecretCipher({ keys: { k1 }, activeKeyId: 'k1', random: short });
     expect(() => broken.encrypt('secret', 'aad')).toThrow(SecretCipherError);
+  });
+
+  // Re-review finding 3 (LOW): the constructor validated `activeKeyId`'s shape before echoing it,
+  // but a non-active entry in `keys` was echoed unchecked in the "must be 32 bytes" message.
+  it('never echoes an invalid non-active key id either', () => {
+    const suspicious = Buffer.alloc(32, 255).toString('base64');
+    try {
+      new AesGcmSecretCipher({ keys: { k1, [suspicious]: Buffer.alloc(16) }, activeKeyId: 'k1' });
+      throw new Error('expected a failure');
+    } catch (e) {
+      expect(e).toBeInstanceOf(SecretCipherError);
+      expect((e as Error).message).not.toContain(suspicious);
+    }
+  });
+
+  // Re-review finding 3 (LOW): `envelopeKeyId` returned whatever sat between the first two dots
+  // unchecked, so a caller that logs "envelope uses key <id>" could echo hostile content.
+  it('envelopeKeyId returns null for an invalid-shaped key id', () => {
+    expect(envelopeKeyId('v1..iv.ct.tag')).toBeNull();
+    expect(envelopeKeyId(`v1.${'x'.repeat(64)}.iv.ct.tag`)).toBeNull();
+    expect(envelopeKeyId('v1.not a valid id.iv.ct.tag')).toBeNull();
+  });
+
+  // Re-review finding 4 (LOW): hashed/encoded as UTF-8, an unpaired surrogate collapses to
+  // U+FFFD, so two different ill-formed strings could bind to, or decode from, the same bytes.
+  it('rejects ill-formed aad and plaintext (lone surrogates)', () => {
+    expect(() => cipher.encrypt('secret', '\uD800')).toThrow(SecretCipherError);
+    expect(() => cipher.encrypt('\uD800', 'aad')).toThrow(SecretCipherError);
+    expect(() => cipher.decrypt(cipher.encrypt('secret', 'aad'), '\uD800')).toThrow(
+      SecretCipherError,
+    );
+  });
+
+  // Re-review finding 5 (LOW): keys are copied into `KeyObject`s at construction time, so
+  // mutating (or zeroing) the caller's original `Buffer` afterwards cannot change what the
+  // cipher encrypts or decrypts with.
+  it('is not affected by the caller mutating the source key buffer after construction', () => {
+    const source = Buffer.from(k1);
+    const isolated = new AesGcmSecretCipher({ keys: { k1: source }, activeKeyId: 'k1' });
+    const envelope = isolated.encrypt('secret', 'aad');
+    source.fill(0);
+    expect(isolated.decrypt(envelope, 'aad')).toBe('secret');
   });
 });
 
