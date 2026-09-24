@@ -31,3 +31,35 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm turbo run lint typecheck test build
       - run: pnpm format:check
+
+  db-drift:
+    name: db-drift
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: tms
+          POSTGRES_PASSWORD: tms
+          POSTGRES_DB: tms
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U tms -d tms"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 12
+    env:
+      DATABASE_URL: postgresql://tms:tms@localhost:5432/tms
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile --filter @tms/db...
+      - name: Apply migrations
+        run: pnpm --filter @tms/db db:migrate:deploy
+      - name: Schema matches migrations (no drift)
+        run: pnpm --filter @tms/db db:drift
