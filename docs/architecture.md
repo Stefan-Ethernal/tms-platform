@@ -39,6 +39,11 @@ locally (D11). Migrations run only in the one-shot `migrate` service or `predev`
 (D12). In production the kiosk origin runs on an isolated terminal network; the compose stack
 serves both origins from one Caddy container on one Docker network.
 
+Both APIs import `@tms/domain/shared` (`SharedModule`: CLS request context,
+`@nestjs-cls/transactional` over `PrismaService`, `AuditService`, `Clock`, `MailSender` port);
+`@tms/domain` has no root export, and `api-driver` may import only its `shared` and (phase 4)
+`checkin` subpaths.
+
 ## Dependency rule
 
 `contracts <- db <- domain <- apps`, plus `contracts, db, logger <- bootstrap <- api` (`bootstrap`
@@ -401,6 +406,18 @@ breadcrumbs; it drops cookies and removes the user on `api-driver` (no user cont
 `SentryGlobalFilter`, registered by `CoreModule`, reports unexpected errors only; `HttpException`s
 are not reported and response bodies do not change. The SPAs and source-map upload follow in
 phase 8.
+
+### Audit
+
+`AuditService.record({ action, outcome, actorUserId?, target?, metadata? })` from
+`@tms/domain/shared` writes one `AuditLog` row through `txHost.tx`: inside a `@Transactional()`
+use case it joins the caller's transaction (a rollback removes the row; a failed
+`Propagation.Nested` step rolls back only to its savepoint), outside one it autocommits. Metadata
+is validated against the action's strict schema from `@tms/contracts` first; invalid metadata or a
+failed insert fails the caller (fail-closed). `app` is fixed per process (`ADMIN`, `DRIVER`), `at`
+comes from the `Clock` port, `ip` and `userAgent` (at most 512 characters) from the request context
+that the CLS middleware stores; the CLS id, the log `req.id` and the `X-Request-Id` header are one
+value (ADR-0006). The audit screen arrives in phase 8.
 
 ## Testing strategy
 

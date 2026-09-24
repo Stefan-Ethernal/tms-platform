@@ -1,4 +1,5 @@
 import { type DynamicModule, Module } from '@nestjs/common';
+import { SharedModule } from '@tms/domain/shared';
 import { CoreModule, createEnvSchema } from '@tms/nest-bootstrap';
 import type { z } from 'zod';
 
@@ -10,6 +11,12 @@ export type Env = z.infer<typeof envSchema>;
 @Module({})
 export class AppModule {
   static forRoot(env: Env): DynamicModule {
-    return { module: AppModule, imports: [CoreModule.forRoot({ app: 'api-driver', env })] };
+    return {
+      module: AppModule,
+      imports: [
+        CoreModule.forRoot({ app: 'api-driver', env }),
+        SharedModule.forRoot({ app: 'DRIVER' }),
+      ],
+    };
   }
 }
