@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { spawnSync } from 'node:child_process';
 import { resolve } from 'node:path';
+import { scrubString } from '@tms/contracts/security';
 import { createPrismaClient } from '../index';
 import { SeedConfigError, seedDatabase } from '../seed/seed';
 import { syncPermissions } from '../sync/apply';
@@ -21,14 +22,23 @@ const PRISMA_CONFIG = resolve(PACKAGE_ROOT, 'prisma.config.ts');
 const SCHEMA = resolve(PACKAGE_ROOT, 'prisma', 'schema.prisma');
 const PRISMA_CLI = require.resolve('prisma/build/index.js');
 
-/** Runs the Prisma CLI in-process-adjacent (same stdio) and returns its exit code. */
+/**
+ * Runs the Prisma CLI and returns its exit code. Output is captured (never `stdio: 'inherit'`)
+ * and scrubbed before it reaches our own stdout/stderr: the child can embed the datasource URL
+ * (with credentials) in its own error or debug output (e.g. under `DEBUG=prisma:*`), which would
+ * otherwise bypass `describeFailure`/`scrubString` entirely.
+ */
 function prisma(args: string[]): number {
   const result = spawnSync(process.execPath, [PRISMA_CLI, ...args, '--config', PRISMA_CONFIG], {
-    stdio: 'inherit',
+    encoding: 'utf8',
     // No update-check network call from a pipeline step.
     env: { ...process.env, CHECKPOINT_DISABLE: '1' },
   });
   if (result.error) throw result.error;
+  const stdout = scrubString(result.stdout ?? '');
+  const stderr = scrubString(result.stderr ?? '');
+  if (stdout) process.stdout.write(stdout);
+  if (stderr) process.stderr.write(stderr);
   return result.status ?? EXIT_FAILURE;
 }
 

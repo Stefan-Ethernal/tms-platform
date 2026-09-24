@@ -79,4 +79,19 @@ describe('dev-setup CLI (the predev pipeline)', () => {
     expect(result.stderr).toBe('DATABASE_URL is not set\n');
     expect(result.stdout).toBe('');
   });
+
+  it('exits 1 on a wrong DATABASE_URL password without leaking it, even under prisma debug logging', () => {
+    // `DEBUG=prisma:*` makes the Prisma CLI child process dump its config (URL and all) to its
+    // own stderr; dev-setup.ts must scrub that captured output, not just its own error messages.
+    const url = new URL(testDatabaseUrl());
+    url.password = 'not-the-password-7f3a';
+    const result = run({
+      DATABASE_URL: url.toString(),
+      BOOTSTRAP_ADMIN_EMAIL: 'admin@example.com',
+      DEBUG: 'prisma:*',
+    });
+    expect(result.status).toBe(1);
+    expect(result.stdout).not.toContain('not-the-password-7f3a');
+    expect(result.stderr).not.toContain('not-the-password-7f3a');
+  });
 });
