@@ -8,10 +8,11 @@ Claude Code plugin for Ethernal's NestJS + React + Prisma projects.
   the session root and are out of scope); `PostToolUse` runs eslint --fix and prettier on edited
   TypeScript/JavaScript files in that same work tree, best effort; `Stop` adds a non-blocking
   reminder to run `pnpm verify` when `apps/` or `packages/` have uncommitted changes.
-- **Agents**: `plan-critic` (read-only critic for specs and plans).
+- **Agents**: `plan-critic` (read-only critic for specs and plans), `security-reviewer`
+  (read-only review of auth/RBAC/session/token/secret changes; mandatory for those PRs).
 - **Skills**: `verify`, `pr`. More (`new-module`, `add-permission`, `db-migration`,
-  `new-admin-page`, `e2e-scenario`, `docs-sync`) and agents (`security-reviewer`, `qa-e2e`,
-  `architecture-reviewer`, `docs-writer`) arrive with the phases that need them.
+  `new-admin-page`, `e2e-scenario`, `docs-sync`) and agents (`qa-e2e`, `architecture-reviewer`,
+  `docs-writer`) arrive with the phases that need them.
 
 Loading: the repository's `.claude/settings.json` registers the local marketplace `tms`
 (`tools/claude-plugin`) and enables `ethernal-nest-react@tms`, so the plugin is active once the
