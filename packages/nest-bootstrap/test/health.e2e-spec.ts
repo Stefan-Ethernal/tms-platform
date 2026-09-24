@@ -3,6 +3,7 @@ import { Test } from '@nestjs/testing';
 import { PostgreSqlContainer, type StartedPostgreSqlContainer } from '@testcontainers/postgresql';
 import request from 'supertest';
 import type { App } from 'supertest/types';
+import { PrismaService } from '@tms/db/nest';
 import { POSTGRES_TEST_IMAGE, startFaultProxy, type FaultProxy } from '@tms/db/testing';
 import { LOG_DESTINATION } from '@tms/logger';
 import { MemoryLogStream, type LogRecord } from '@tms/logger/testing';
@@ -38,6 +39,25 @@ function expectDegraded(result: HealthResult): void {
   expect(result.status).toBe(503);
   expect(result.text).toBe('{"status":"degraded","service":"api-admin"}');
   expect(result.cacheControl).toBe('no-store');
+}
+
+/**
+ * Polls until the endpoint reports 200 instead of trusting a single call. A connection that was
+ * just (re)established — a fresh app's first query, or a reconnect after a proxy mode switch away
+ * from 'forward' drops the open socket — races the same HEALTH_DB_TIMEOUT_MS bound that protects
+ * against a hung database (health.service.ts), so one slow round trip under a loaded CI runner can
+ * report a transient 503 before the pool settles; production tolerates exactly this through the
+ * compose healthcheck's own interval/retries rather than requiring instant recovery.
+ */
+async function eventuallyOk(app: INestApplication<App>, timeoutMs = 10_000): Promise<HealthResult> {
+  const deadline = Date.now() + timeoutMs;
+  let last: HealthResult;
+  do {
+    last = await health(app);
+    if (last.status === 200) return last;
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  } while (Date.now() < deadline);
+  return last;
 }
 
 const healthRequestLines = (records: LogRecord[]): LogRecord[] =>
@@ -95,6 +115,10 @@ describe('GET /api/health (e2e, dedicated Postgres)', () => {
       startFaultProxy({ upstream: { host: container.getHost(), port: container.getPort() } }),
     );
     primary = await boot(urlThrough(proxy));
+    // Untimed on purpose: HEALTH_DB_TIMEOUT_MS bounds a hung database (the black-hole test below),
+    // not how long a fresh TCP+auth handshake takes under a loaded CI runner. Without this, the
+    // very first assertion below would be racing that cold connect against the 1000ms budget.
+    await primary.get(PrismaService).$queryRaw`SELECT 1`;
   }, 120_000);
 
   afterAll(async () => {
@@ -123,11 +147,13 @@ describe('GET /api/health (e2e, dedicated Postgres)', () => {
     expect(down.elapsedMs).toBeLessThan(TIMEOUT_MS);
     const warning = await logs.waitFor(degradedWarning, { from: mark });
     expect(typeof warning['reason']).toBe('string');
+    // setMode away from 'forward' dropped the open socket, so this reconnect is cold again
+    // (same race as the warm-up above); poll instead of trusting the first call.
     proxy.setMode('forward');
-    const up = await health(primary);
+    const up = await eventuallyOk(primary);
     expect(up.status).toBe(200);
     expect(up.body).toEqual({ status: 'ok', service: 'api-admin' });
-  });
+  }, 15_000);
 
   it('bounds a black-holed database by HEALTH_DB_TIMEOUT_MS', async () => {
     const hole = await track(startFaultProxy({ mode: 'blackhole' }));
@@ -151,15 +177,20 @@ describe('GET /api/health (e2e, dedicated Postgres)', () => {
     );
     const app = await boot(urlThrough(gate));
     expectDegraded(await health(app));
+    // The refused first attempt never established a connection, so this is a genuinely cold
+    // connect once the gate opens; poll instead of trusting the first call (same reasoning as the
+    // primary app's warm-up in beforeAll).
     gate.setMode('forward');
-    const up = await health(app);
+    const up = await eventuallyOk(app);
     expect(up.status).toBe(200);
     expect(up.body).toEqual({ status: 'ok', service: 'api-admin' });
-  });
+  }, 15_000);
 
   it('answers 503 within the budget after the database container stops', async () => {
     const app = await boot(container.getConnectionUri());
-    expect((await health(app)).status).toBe(200);
+    // Fresh app, first query: same cold-connect race as elsewhere in this file; poll once to reach
+    // a warm connection, then the timed assertions below are about the warm connection going down.
+    expect((await eventuallyOk(app)).status).toBe(200);
     await container.stop();
     containerStopped = true;
     const result = await health(app);

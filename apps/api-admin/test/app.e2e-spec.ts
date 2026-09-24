@@ -2,6 +2,7 @@ import { Test } from '@nestjs/testing';
 import { Controller, Get, type INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import type { App } from 'supertest/types';
+import { PrismaService } from '@tms/db/nest';
 import { testDatabaseUrl } from '@tms/db/testing';
 import { configureApp, loadEnv } from '@tms/nest-bootstrap';
 import { AppModule, envSchema } from '../src/app.module';
@@ -34,6 +35,11 @@ describe('api-admin skeleton (e2e)', () => {
     sigtermListenersBefore = process.listenerCount('SIGTERM');
     app = configureApp(moduleRef.createNestApplication());
     await app.init();
+    // Prisma connects lazily; without this the /api/health test below would be the pool's first
+    // ever query and would race a cold TCP+auth handshake against HEALTH_DB_TIMEOUT_MS (1000ms
+    // default) instead of testing whether the endpoint reports a reachable database. Untimed here
+    // on purpose: this is connection setup, not the bound the health check itself is meant to test.
+    await app.get(PrismaService).$queryRaw`SELECT 1`;
   });
 
   afterAll(async () => {
