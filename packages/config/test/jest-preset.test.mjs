@@ -73,6 +73,16 @@ describe('createJestConfig', () => {
     expect(createJestConfig({ rootDir: '/repo/apps/api-admin' }).maxWorkers).toBe(2);
   });
 
+  it.each([['false'], ['0']])('treats CI=%s as not CI', (value) => {
+    process.env.CI = value;
+    expect(createJestConfig({ rootDir: '/repo/apps/api-admin' }).maxWorkers).toBe('50%');
+  });
+
+  it('treats an unset CI as not CI', () => {
+    delete process.env.CI;
+    expect(createJestConfig({ rootDir: '/repo/apps/api-admin' }).maxWorkers).toBe('50%');
+  });
+
   it('maps .js-suffixed relative specifiers to extensionless ones and nothing else', () => {
     const [[pattern, replacement]] = Object.entries(
       createJestConfig({ rootDir: '/r' }).moduleNameMapper,

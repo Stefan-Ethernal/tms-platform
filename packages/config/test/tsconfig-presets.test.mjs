@@ -109,6 +109,7 @@ describe('tsconfig presets', () => {
       declaration: true,
       declarationMap: true,
       types: ['node'],
+      strictPropertyInitialization: false,
     });
     expect(parsed.options.verbatimModuleSyntax).toBeUndefined();
   });

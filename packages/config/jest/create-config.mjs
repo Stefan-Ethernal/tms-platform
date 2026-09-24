@@ -6,6 +6,15 @@ import path from 'node:path';
 export const HARNESS_PACKAGE = '@tms/db';
 
 /**
+ * Whether `CI` marks a CI run. Unset, `''`, `'0'` and `'false'` (case-insensitive) are not CI;
+ * everything else (including `'1'` and `'true'`) is.
+ */
+function isCi() {
+  const value = (process.env['CI'] ?? '').toLowerCase();
+  return value !== '' && value !== '0' && value !== 'false';
+}
+
+/**
  * Jest configuration for NestJS apps and CommonJS libraries (the Nest 12 template plus the
  * interop settings the workspace needs). Run with
  * `NODE_OPTIONS='--experimental-vm-modules --no-warnings=ExperimentalWarning' jest`:
@@ -29,7 +38,7 @@ export function createJestConfig({ rootDir, database = false }) {
     // Workspace packages are consumed from their compiled dist/; transforming it again only costs
     // time (spike: 6.2 s instead of 1.4 s).
     transformIgnorePatterns: ['/node_modules/', '/packages/[^/]+/dist/'],
-    maxWorkers: process.env['CI'] ? 2 : '50%',
+    maxWorkers: isCi() ? 2 : '50%',
     collectCoverageFrom: ['src/**/*.ts', '!src/main.ts', '!src/instrument.ts'],
     coverageDirectory: '<rootDir>/coverage',
   };

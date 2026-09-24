@@ -29,7 +29,7 @@ jobs:
           node-version-file: .nvmrc
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - name: One copy of Nest, nestjs-cls and the Prisma client
+      - name: Hygiene with the installed lockfile (single-copy check)
         run: node tools/scripts/check-hygiene.mjs
       - run: pnpm turbo run lint typecheck test build
       - run: pnpm format:check

@@ -44,7 +44,10 @@ is `packages/nest-bootstrap`, the shared Nest bootstrap). Apps are two element t
 (`apps/web-*`) only `contracts` and `ui`. Enforced by `eslint-plugin-boundaries`
 (`packages/config/eslint/base.mjs`) for relative imports and `@tms/*` package specifiers alike:
 `eslint-import-resolver-typescript` follows each package's `exports` and pnpm's symlinks to the
-real file, so a forbidden import is reported however it is written
+real file, so a forbidden import is reported however it is written, provided the imported
+package's `dist/` has been built; an unresolved specifier is treated as external and passes
+silently, which a fresh clone or a stale `dist/` can hit locally. The turbo `lint` task depends on
+`^build`, and CI always builds first, so the gate holds there
 (`packages/config/test/eslint-boundaries-packages.test.mjs`). `api-driver` may import only
 `@tms/domain/checkin` and `@tms/domain/shared` (`no-restricted-imports` in its eslint config).
 `auth-core` is Nest-free and Prisma-free by convention; boundaries stops it importing `db`/`domain`,
