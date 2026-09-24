@@ -59,7 +59,13 @@ describe('lockout policy', () => {
   });
 
   it('success resets counter and level', () => {
-    expect(registerSuccess(failTimes(clean, T0, 5))).toEqual(clean);
+    expect(registerSuccess(failTimes(clean, T0, 5), 'MFA_SUCCESS')).toEqual(clean);
+  });
+
+  it('reports zero remaining when not locked, including a lock that already expired', () => {
+    expect(lockRemainingSeconds(clean, T0)).toBe(0);
+    const expired: LockoutState = { failedCount: 0, level: 2, lockedUntil: plus(T0, -1) };
+    expect(lockRemainingSeconds(expired, T0)).toBe(0);
   });
 
   it('lock duration is monotonic in the level and never exceeds the cap', () => {
@@ -74,6 +80,11 @@ describe('lockout policy', () => {
   });
 
   it('under any sequence of failures, successes and time jumps the invariants hold', () => {
+    // An oracle independent of the implementation's own `isLocked`, so this property cannot pass
+    // merely by restating the code under test (phase 2 plan security review, finding 5).
+    const rawIsLocked = (state: LockoutState, at: Date) =>
+      state.lockedUntil !== null && state.lockedUntil.getTime() > at.getTime();
+
     type Op = { kind: 'fail' } | { kind: 'ok' } | { kind: 'wait'; seconds: number };
     const op = fc.oneof(
       fc.constant<Op>({ kind: 'fail' }),
@@ -87,11 +98,12 @@ describe('lockout policy', () => {
         for (const o of ops) {
           const before = s;
           if (o.kind === 'wait') now = plus(now, o.seconds);
-          else if (o.kind === 'ok') s = registerSuccess(s);
+          else if (o.kind === 'ok') s = registerSuccess(s, 'MFA_SUCCESS');
           else {
             const r = registerFailure(s, now, CFG);
-            if (isLocked(before, now)) expect(r.state).toEqual(before);
-            if (!isLocked(before, now)) expect(r.state.level).toBeGreaterThanOrEqual(before.level);
+            if (rawIsLocked(before, now)) expect(r.state).toEqual(before);
+            if (!rawIsLocked(before, now))
+              expect(r.state.level).toBeGreaterThanOrEqual(before.level);
             s = r.state;
           }
           expect(s.failedCount).toBeGreaterThanOrEqual(0);

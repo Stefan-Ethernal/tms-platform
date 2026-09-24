@@ -1,3 +1,12 @@
+/**
+ * Lockout counter state for one account. Pure data: the caller owns loading and persisting it as
+ * a single atomic unit per account (a row lock such as `SELECT ... FOR UPDATE`, or one conditional
+ * `UPDATE ... WHERE failedCount = $expected`) — never a plain read, call, write-back, or two
+ * concurrent failures can both observe the pre-failure state and undercount (phase 2 plan, Review
+ * Focus item 3: "ten parallel wrong passwords when the counter is at 4 — exactly one request
+ * succeeds"). Mirrors the atomic-consumption contract `secret-cipher.ts` and `totp.ts` document for
+ * their own ports.
+ */
 export interface LockoutState {
   failedCount: number;
   /** Consecutive lockouts since the last success (drives the doubling). */
@@ -37,6 +46,11 @@ export function normalizeLockout(s: LockoutState, now: Date): LockoutState {
   return s;
 }
 
+/**
+ * Registers one failed credential check. Caller contract: load `s`, call this, and persist the
+ * returned `state` as one atomic unit per account (see {@link LockoutState}) — a read-modify-write
+ * split across two round trips lets concurrent failures race past the threshold.
+ */
 export function registerFailure(
   s: LockoutState,
   now: Date,
@@ -59,7 +73,17 @@ export function registerFailure(
   };
 }
 
-/** Successful second factor, completed enrollment, or admin unlock. */
-export function registerSuccess(_s: LockoutState): LockoutState {
+/** The three legitimate triggers that may clear a lockout counter — never a correct password alone. */
+export type LockoutSuccessReason = 'MFA_SUCCESS' | 'ENROLLMENT_COMPLETE' | 'ADMIN_UNLOCK';
+
+/**
+ * Resets the failure counter and the lockout level. Call this only after the *second* factor has
+ * succeeded (TOTP or recovery code), enrollment has completed, or an admin has explicitly unlocked
+ * the account — a correct password alone must never by itself clear or lower the failure counter
+ * (spec section 8; phase 2 plan, Review Focus item 1: "a correct password must not reset the
+ * failure counter"). `reason` is required, not optional, so every call site states — and a
+ * reviewer can grep for — which of the three legitimate triggers applies.
+ */
+export function registerSuccess(_s: LockoutState, _reason: LockoutSuccessReason): LockoutState {
   return { failedCount: 0, level: 0, lockedUntil: null };
 }
