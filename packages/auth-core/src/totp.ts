@@ -1,0 +1,67 @@
+import { generate, generateSecret, generateURI, verify } from 'otplib';
+
+export const TOTP_PERIOD_SECONDS = 30;
+const CODE = /^\d{6}$/;
+
+export type TotpVerification = { ok: true; step: number } | { ok: false };
+
+export interface TotpProvider {
+  generateSecret(): string;
+  buildUri(input: { issuer: string; account: string; secret: string }): string;
+  /** ±1 step (section 8); a match at or before `lastUsedStep` is a replay and fails. */
+  verify(input: {
+    secret: string;
+    code: string;
+    now: Date;
+    lastUsedStep: number | null;
+  }): Promise<TotpVerification>;
+}
+
+const epochSeconds = (d: Date) => Math.floor(d.getTime() / 1000);
+
+export class OtplibTotpProvider implements TotpProvider {
+  generateSecret(): string {
+    return generateSecret();
+  }
+
+  buildUri({
+    issuer,
+    account,
+    secret,
+  }: {
+    issuer: string;
+    account: string;
+    secret: string;
+  }): string {
+    return generateURI({ issuer, label: account, secret });
+  }
+
+  async verify({
+    secret,
+    code,
+    now,
+    lastUsedStep,
+  }: {
+    secret: string;
+    code: string;
+    now: Date;
+    lastUsedStep: number | null;
+  }): Promise<TotpVerification> {
+    if (!CODE.test(code)) return { ok: false };
+    const result = await verify({
+      secret,
+      token: code,
+      epoch: epochSeconds(now),
+      epochTolerance: TOTP_PERIOD_SECONDS,
+      ...(lastUsedStep === null ? {} : { afterTimeStep: lastUsedStep }),
+    });
+    return result.valid && 'timeStep' in result
+      ? { ok: true, step: result.timeStep }
+      : { ok: false };
+  }
+}
+
+/** The code an authenticator shows at `now` (tests and the E2E TOTP helper). */
+export function generateTotpCode(secret: string, now: Date): Promise<string> {
+  return generate({ secret, epoch: epochSeconds(now) });
+}
