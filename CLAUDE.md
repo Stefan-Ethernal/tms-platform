@@ -14,11 +14,11 @@ Node 26, pnpm 12 (catalog in `pnpm-workspace.yaml` is the only place versions li
 TypeScript ~7.0, NestJS 12 (apps compile to CJS, Jest 30 with `--experimental-vm-modules`),
 React 19 + Vite 8 + Vitest 5, Prisma 7, Postgres 18, zod 4, Playwright, ESLint 10 with
 `eslint-plugin-boundaries`. TypeScript 7 ships the native `tsc` only; the classic JS Compiler
-API a few tools still need returns in 7.1. Until then: `apps/api-admin` and `apps/api-driver`
-pin the classic compiler via the `nest-ts6` catalog (Nest CLI's build/schematics engine needs
-it); everything else stays on the default `typescript` catalog entry (~7.0.2), and
-`.pnpmfile.cjs` gives typescript-eslint its own classic-compiler dependency so ESLint's
-type-aware linting works everywhere else without downgrading `tsc`/`vite build`.
+API a few tools still need returns in 7.1. Until then every package that needs that API at
+build or test time (Nest CLI, ts-jest, direct `ts.*` calls: today `apps/api-*` and
+`packages/config`, and every Nest library that follows) declares `typescript: catalog:nest-ts6`;
+all other packages use the default `typescript` entry (~7.0.2), and `.pnpmfile.cjs` gives
+typescript-eslint its own classic compiler. Remove both workarounds once 7.1 ships the API.
 
 ## Commands
 

@@ -65,9 +65,9 @@ catalog:
 # Nest CLI's build/schematics engine resolves "typescript" from the target app's own
 # devDependency (not from its own package), and its programmatic compiler API doesn't
 # return until TypeScript 7.1 (nest build fails: "install TypeScript 6 ... until then").
-# apps/api-admin and apps/api-driver pin the real classic package here instead of the
-# default catalog's 7.x, so `nest build`, `tsc`/`tsc -b`, and ts-jest all agree within
-# those two apps. Every other package keeps the default catalog's typescript@~7.0.2.
+# Packages that need the JS compiler API (Nest CLI, ts-jest, direct `ts.*` calls: apps/api-*,
+# packages/config and every Nest library that follows) pin the real classic package here, so
+# `nest build`, `tsc`/`tsc -b` and ts-jest agree. Every other package keeps typescript@~7.0.2.
 catalogs:
   nest-ts6:
     typescript: ~6.0.3
