@@ -144,6 +144,10 @@ describe('GET /api/health (e2e, dedicated Postgres)', () => {
     proxy.setMode('refuse');
     const down = await health(primary);
     expectDegraded(down);
+    // Known caveat: this bound is Node's own event-loop timing, not a connection cost, so it can
+    // in principle be pushed past TIMEOUT_MS by extreme host starvation (observed once locally
+    // under ~10-12x CPU oversubscription, not reproduced at CI-comparable contention); it is not
+    // the cold-connect race the warm-ups/eventuallyOk in this file guard against.
     expect(down.elapsedMs).toBeLessThan(TIMEOUT_MS);
     const warning = await logs.waitFor(degradedWarning, { from: mark });
     expect(typeof warning['reason']).toBe('string');
