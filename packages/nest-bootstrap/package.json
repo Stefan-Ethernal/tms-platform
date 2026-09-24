@@ -10,6 +10,10 @@
     ".": {
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
+    },
+    "./sentry": {
+      "types": "./dist/sentry/index.d.ts",
+      "default": "./dist/sentry/index.js"
     }
   },
   "files": [
@@ -23,6 +27,7 @@
   },
   "dependencies": {
     "@nestjs/terminus": "catalog:",
+    "@sentry/nestjs": "catalog:",
     "@tms/contracts": "workspace:*",
     "@tms/db": "workspace:*",
     "@tms/logger": "workspace:*",
