@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import { existsSync, realpathSync } from 'node:fs';
+import { existsSync } from 'node:fs';
 import path from 'node:path';
 
 /** The directory Claude Code started in; the payload's cwd may be a subdirectory. */
@@ -8,22 +8,28 @@ export function sessionRoot(input) {
 }
 
 /**
- * The root of the work tree that holds `filePath`. A session started in the main checkout may edit
- * files in another worktree of the same repository (a sibling one, or one Claude Code nests under
- * `.claude/worktrees/`); those files belong to that worktree's root, not the session root (9-M1).
- * Files outside the session's repository, and calls without a path, keep the session root.
+ * Where an edited file lives: the root of its work tree and the file's path re-expressed under that
+ * root, so `path.relative(root, abs)` is the tree-relative path even through symlinks or a session
+ * started in a subdirectory. A session in the main checkout may edit files in another worktree of
+ * the same repository (a sibling one, or one Claude Code nests under `.claude/worktrees/`); those
+ * belong to that worktree (9-M1). Files outside the session's repository, and any git failure, keep
+ * the session root and the path as given.
  *
  * @param {{ cwd?: string }} input the hook payload
- * @param {string | undefined} filePath absolute, or relative to the session root
+ * @param {string} filePath absolute, or relative to the session root
+ * @returns {{ root: string, abs: string }}
  */
-export function projectRoot(input, filePath) {
+export function locate(input, filePath) {
   const root = sessionRoot(input);
-  if (!filePath) return root;
-  const fileTree = gitTree(nearestExistingDir(path.dirname(path.resolve(root, filePath))));
-  const sessionTree = gitTree(root);
-  if (!fileTree || !sessionTree || fileTree.commonDir !== sessionTree.commonDir) return root;
-  // Same work tree: keep the session root as given, so paths under a symlinked root still match.
-  return fileTree.toplevel === sessionTree.toplevel ? root : fileTree.toplevel;
+  const abs = path.resolve(root, filePath);
+  const existing = nearestExistingDir(path.dirname(abs));
+  const fileTree = gitTree(existing);
+  const sessionTree = fileTree && gitTree(root);
+  if (!fileTree || fileTree.commonDir !== sessionTree?.commonDir) return { root, abs };
+  return {
+    root: fileTree.toplevel,
+    abs: path.join(fileTree.toplevel, fileTree.prefix, path.relative(existing, abs)),
+  };
 }
 
 function nearestExistingDir(dir) {
@@ -31,18 +37,30 @@ function nearestExistingDir(dir) {
   return dir;
 }
 
-/** @returns {{ toplevel: string, commonDir: string } | undefined} */
+// Inherited GIT_DIR / GIT_WORK_TREE (hooks that run `claude -p`) would override the -C lookup.
+const gitEnv = Object.fromEntries(
+  Object.entries(process.env).filter(([key]) => !key.startsWith('GIT_')),
+);
+
+/** @returns {{ toplevel: string, commonDir: string, prefix: string } | undefined} */
 function gitTree(dir) {
   try {
-    const [toplevel, commonDir] = execFileSync(
+    const out = execFileSync(
       'git',
-      ['-C', dir, 'rev-parse', '--show-toplevel', '--git-common-dir'],
-      { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], timeout: 5_000 },
-    )
-      .trim()
-      .split('\n');
-    return { toplevel, commonDir: realpathSync(path.resolve(dir, commonDir)) };
+      [
+        '-C',
+        dir,
+        'rev-parse',
+        '--path-format=absolute',
+        '--show-toplevel',
+        '--git-common-dir',
+        '--show-prefix',
+      ],
+      { encoding: 'utf8', env: gitEnv, stdio: ['ignore', 'pipe', 'ignore'], timeout: 2_000 },
+    );
+    const [toplevel, commonDir, prefix = ''] = out.split('\n');
+    return { toplevel, commonDir, prefix };
   } catch {
-    return undefined; // not a git work tree
+    return undefined; // not a git work tree, or git is unavailable
   }
 }

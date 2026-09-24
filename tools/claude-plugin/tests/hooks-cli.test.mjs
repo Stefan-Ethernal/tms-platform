@@ -2,7 +2,7 @@ import { execFileSync, spawnSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createWorktreeFixture } from './support/worktrees.mjs';
 
 const repoRoot = path.resolve(import.meta.dirname, '../../..');
@@ -61,12 +61,13 @@ describe('protect-files.mjs', () => {
     beforeAll(() => {
       fx = createWorktreeFixture();
     });
-    const edit = (file) =>
-      run('protect-files.mjs', {
-        tool_name: 'Write',
-        tool_input: { file_path: file },
-        cwd: fx.main,
-      });
+    afterAll(() => fx.remove());
+    const edit = (file, env = {}) =>
+      run(
+        'protect-files.mjs',
+        { tool_name: 'Write', tool_input: { file_path: file }, cwd: fx.main },
+        env,
+      );
 
     it.each([
       ['a sibling worktree .env', (f) => path.join(f.sibling, '.env')],
@@ -80,6 +81,15 @@ describe('protect-files.mjs', () => {
     it('allows ordinary files in a worktree and leaves unrelated repositories alone', () => {
       expect(edit(path.join(fx.sibling, 'apps/a.ts')).status).toBe(0);
       expect(edit(path.join(fx.foreign, '.env')).status).toBe(0);
+    });
+
+    it('ignores an inherited GIT_DIR (a git hook running claude -p)', () => {
+      // With GIT_DIR set, git takes the -C directory as the top of the work tree; an existing
+      // docs/client/ would then become the root and the file would look like a plain `x.md`.
+      mkdirSync(path.join(fx.main, 'docs/client'), { recursive: true });
+      const env = { GIT_DIR: path.join(fx.main, '.git') };
+      expect(edit(path.join(fx.main, 'docs/client/x.md'), env).status).toBe(2);
+      expect(edit(path.join(fx.sibling, '.env'), env).status).toBe(2);
     });
   });
   it('exits 0 on malformed input instead of blocking everything', () => {

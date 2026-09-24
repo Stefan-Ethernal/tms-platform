@@ -1,56 +1,74 @@
-import { symlinkSync } from 'node:fs';
+import { mkdirSync, symlinkSync } from 'node:fs';
 import path from 'node:path';
-import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
-import { projectRoot } from '../ethernal-nest-react/hooks/lib/project-root.mjs';
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+import { locate } from '../ethernal-nest-react/hooks/lib/project-root.mjs';
 import { createWorktreeFixture } from './support/worktrees.mjs';
 
-describe('projectRoot', () => {
+describe('locate', () => {
   let fx;
   beforeAll(() => {
     fx = createWorktreeFixture();
   });
+  afterAll(() => fx.remove());
   afterEach(() => {
     vi.unstubAllEnvs();
   });
 
-  const fromMain = (filePath) => {
-    vi.stubEnv('CLAUDE_PROJECT_DIR', fx.main);
-    return projectRoot({ cwd: fx.main }, filePath);
+  /** Locates `filePath` for a session started in `session`; returns the root and tree-relative path. */
+  const from = (session, filePath) => {
+    vi.stubEnv('CLAUDE_PROJECT_DIR', session);
+    const { root, abs } = locate({ cwd: session }, filePath);
+    return { root, rel: path.relative(root, abs) };
   };
 
-  it('is the session root for a file in the checkout the session started in', () => {
-    expect(fromMain(path.join(fx.main, 'apps/a.ts'))).toBe(fx.main);
+  it('keeps a file in the checkout the session started in under that checkout', () => {
+    expect(from(fx.main, path.join(fx.main, 'apps/a.ts'))).toEqual({
+      root: fx.main,
+      rel: 'apps/a.ts',
+    });
   });
 
-  it('is the sibling worktree for a file in it (9-M1)', () => {
-    expect(fromMain(path.join(fx.sibling, '.env'))).toBe(fx.sibling);
+  it.each([
+    ['a sibling worktree', (f) => [f.sibling, '.env']],
+    ['a worktree nested under .claude/worktrees/', (f) => [f.nested, 'docs/client/x.md']],
+    ['a directory not created yet', (f) => [f.sibling, 'new/deeper/.env.local']],
+  ])('puts a file in %s under that worktree (9-M1)', (_name, where) => {
+    const [root, rel] = where(fx);
+    expect(from(fx.main, path.join(root, rel))).toEqual({ root, rel });
   });
 
-  it('is the nested worktree for a file under .claude/worktrees/ (9-M1)', () => {
-    expect(fromMain(path.join(fx.nested, 'docs/client/x.md'))).toBe(fx.nested);
-  });
-
-  it('uses the nearest existing directory for a file in a directory not created yet', () => {
-    expect(fromMain(path.join(fx.sibling, 'new/deeper/.env.local'))).toBe(fx.sibling);
-  });
-
-  it('keeps the session root for a file in an unrelated repository', () => {
-    expect(fromMain(path.join(fx.foreign, '.env'))).toBe(fx.main);
-  });
-
-  it('keeps the session root outside any repository and without a file path', () => {
-    expect(fromMain(path.join(fx.base, 'loose/.env'))).toBe(fx.main);
-    expect(fromMain(undefined)).toBe(fx.main);
-  });
-
-  it('keeps a symlinked session root as given for files in the same work tree', () => {
-    const link = path.join(fx.base, 'link');
+  it('gives the tree-relative path through a symlinked session root', () => {
+    const link = path.join(fx.base, 'link-main');
     symlinkSync(fx.main, link);
-    vi.stubEnv('CLAUDE_PROJECT_DIR', link);
-    expect(projectRoot({ cwd: link }, path.join(link, '.env'))).toBe(link);
+    expect(from(link, path.join(link, '.env'))).toEqual({ root: fx.main, rel: '.env' });
+  });
+
+  it('gives the tree-relative path through a symlink into a nested worktree', () => {
+    const link = path.join(fx.base, 'link-base');
+    symlinkSync(fx.base, link);
+    const session = path.join(link, 'main');
+    const file = path.join(session, '.claude/worktrees/agent-1/.env');
+    expect(from(session, file)).toEqual({ root: fx.nested, rel: '.env' });
+  });
+
+  it('covers the whole work tree when the session started in a subdirectory', () => {
+    const sub = path.join(fx.main, 'apps/x');
+    mkdirSync(sub, { recursive: true });
+    expect(from(sub, path.join(fx.main, 'docs/client/a.md'))).toEqual({
+      root: fx.main,
+      rel: 'docs/client/a.md',
+    });
+  });
+
+  it('leaves files in an unrelated repository or outside any repository at the session root', () => {
+    for (const file of [path.join(fx.foreign, '.env'), path.join(fx.base, 'loose/.env')]) {
+      const { root, rel } = from(fx.main, file);
+      expect(root).toBe(fx.main);
+      expect(rel.startsWith('../')).toBe(true);
+    }
   });
 
   it('resolves a relative path against the session root', () => {
-    expect(fromMain('apps/a.ts')).toBe(fx.main);
+    expect(from(fx.main, 'apps/a.ts')).toEqual({ root: fx.main, rel: 'apps/a.ts' });
   });
 });
