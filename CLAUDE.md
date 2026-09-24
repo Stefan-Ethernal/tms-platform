@@ -6,9 +6,19 @@ check-in (card + PIN), FIFO loading queue, audit log. Spec:
 
 ## Stack
 
-Node 24, pnpm 12 (catalog in `pnpm-workspace.yaml` is the only place versions live), Turborepo,
-TypeScript ~6.0 (not 7), NestJS 12 (apps compile to CJS, Jest 30 with `--experimental-vm-modules`),
-React 19 + Vite 8 + Vitest 5, Prisma 7, zod 4, Playwright, ESLint 10 with `eslint-plugin-boundaries`.
+Always run the newest _stable_ release of every tool (never a `latest` tag, never a
+dev/nightly/rc build); when a newer major breaks something, fix the break instead of pinning
+back down, and record the workaround here.
+
+Node 26, pnpm 12 (catalog in `pnpm-workspace.yaml` is the only place versions live), Turborepo,
+TypeScript ~7.0, NestJS 12 (apps compile to CJS, Jest 30 with `--experimental-vm-modules`),
+React 19 + Vite 8 + Vitest 5, Prisma 7, Postgres 18, zod 4, Playwright, ESLint 10 with
+`eslint-plugin-boundaries`. TypeScript 7 ships the native `tsc` only; the classic JS Compiler
+API a few tools still need returns in 7.1. Until then: `apps/api-admin` and `apps/api-driver`
+pin the classic compiler via the `nest-ts6` catalog (Nest CLI's build/schematics engine needs
+it); everything else stays on the default `typescript` catalog entry (~7.0.2), and
+`.pnpmfile.cjs` gives typescript-eslint its own classic-compiler dependency so ESLint's
+type-aware linting works everywhere else without downgrading `tsc`/`vite build`.
 
 ## Commands
 

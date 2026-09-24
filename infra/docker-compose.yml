@@ -14,8 +14,12 @@ services:
     # Postgres and Mailpit publish on loopback only: dev credentials and mail stay off the LAN.
     ports:
       - '127.0.0.1:${POSTGRES_PORT:-5432}:5432'
+    # postgres:18 defaults PGDATA to /var/lib/postgresql/<major>/docker (and declares its
+    # own VOLUME at the /var/lib/postgresql parent, not .../data) so a single volume can be
+    # reused across a future major-version upgrade. Mounting the old .../data path here would
+    # silently miss that directory and lose data across container recreation.
     volumes:
-      - pgdata:/var/lib/postgresql/data
+      - pgdata:/var/lib/postgresql
     healthcheck:
       test: ['CMD-SHELL', 'pg_isready -U tms -d tms']
       interval: 5s
