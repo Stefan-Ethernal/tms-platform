@@ -3,8 +3,10 @@
 Claude Code plugin for Ethernal's NestJS + React + Prisma projects.
 
 - **Hooks**: `PreToolUse` blocks edits to `.env`, `.env.*` (except `*.example`) and `docs/client/**`
-  (paths resolved against the project root, not the session cwd); `PostToolUse` runs eslint --fix
-  and prettier on edited TypeScript/JavaScript files, best effort; `Stop` adds a non-blocking
+  (paths resolved inside the git work tree that holds the file, so edits in another worktree of the
+  same repository are covered too; files in unrelated repositories, or when git fails, fall back to
+  the session root and are out of scope); `PostToolUse` runs eslint --fix and prettier on edited
+  TypeScript/JavaScript files in that same work tree, best effort; `Stop` adds a non-blocking
   reminder to run `pnpm verify` when `apps/` or `packages/` have uncommitted changes.
 - **Agents**: `plan-critic` (read-only critic for specs and plans).
 - **Skills**: `verify`, `pr`. More (`new-module`, `add-permission`, `db-migration`,

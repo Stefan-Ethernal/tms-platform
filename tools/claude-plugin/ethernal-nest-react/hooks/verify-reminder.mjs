@@ -2,10 +2,10 @@
 import { execFileSync } from 'node:child_process';
 import { readStdinJson } from './lib/stdin.mjs';
 import { REMINDER, shouldRemind, WATCHED_DIRS } from './lib/reminder.mjs';
-import { projectRoot } from './lib/project-root.mjs';
+import { sessionRoot } from './lib/project-root.mjs';
 
 const input = await readStdinJson();
-const root = projectRoot(input);
+const root = sessionRoot(input);
 
 let porcelain = '';
 try {
