@@ -2,15 +2,29 @@
   "$schema": "https://turborepo.dev/schema.json",
   "ui": "stream",
   "globalDependencies": [".nvmrc", "pnpm-workspace.yaml", "packages/config/**"],
+  "globalPassThroughEnv": ["DOCKER_*", "XDG_RUNTIME_DIR", "TESTCONTAINERS_*"],
   "tasks": {
+    "generate": {
+      "inputs": ["prisma/schema.prisma", "prisma.config.ts", "package.json"],
+      "outputs": ["src/generated/**"]
+    },
     "build": {
-      "dependsOn": ["^build"],
+      "dependsOn": ["^build", "generate"],
       "outputs": ["dist/**"],
       "inputs": ["$TURBO_DEFAULT$", "!**/*.md"]
     },
-    "typecheck": { "dependsOn": ["^build"] },
-    "lint": { "dependsOn": ["^build"] },
-    "test": { "dependsOn": ["^build"], "outputs": ["coverage/**"] },
-    "dev": { "cache": false, "persistent": true, "dependsOn": ["^build"] }
+    "typecheck": { "dependsOn": ["^build", "generate"] },
+    "lint": { "dependsOn": ["^build", "generate"] },
+    "test": { "dependsOn": ["^build", "generate"], "outputs": [] },
+    "dev": { "cache": false, "persistent": true, "dependsOn": ["^build", "generate"] },
+    "db:validate": { "cache": false },
+    "db:migrate:dev": {
+      "cache": false,
+      "dependsOn": ["generate"],
+      "passThroughEnv": ["DATABASE_URL"]
+    },
+    "db:migrate:deploy": { "cache": false, "passThroughEnv": ["DATABASE_URL"] },
+    "db:migrate:status": { "cache": false, "passThroughEnv": ["DATABASE_URL"] },
+    "db:drift": { "cache": false, "passThroughEnv": ["DATABASE_URL"] }
   }
 }

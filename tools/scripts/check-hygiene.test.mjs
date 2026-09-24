@@ -2,7 +2,9 @@ import { describe, expect, it } from 'vitest';
 import {
   CLAUDE_MD_MAX_LINES,
   claudeMdLineCount,
+  findDuplicateCopies,
   findForbiddenDocuments,
+  readSnapshotKeys,
   runHygiene,
 } from './check-hygiene.mjs';
 
@@ -67,6 +69,71 @@ describe('findForbiddenDocuments', () => {
   });
 });
 
+describe('readSnapshotKeys', () => {
+  it('returns the quoted and unquoted keys of the snapshots section only', () => {
+    const lockYaml = [
+      "lockfileVersion: '9.0'",
+      '',
+      'packages:',
+      '',
+      "  '@nestjs/core@12.0.0':",
+      '    resolution: {integrity: sha512-x}',
+      '',
+      'snapshots:',
+      '',
+      "  '@nestjs/common@12.1.0(reflect-metadata@0.2.2)(rxjs@7.8.2)':",
+      '    dependencies:',
+      '      iterare: 1.2.1',
+      '',
+      '  resolve-pkg-maps@1.0.0: {}',
+      '',
+      '  zod@4.6.5: {}',
+      '',
+    ].join('\n');
+    expect(readSnapshotKeys(lockYaml)).toEqual([
+      '@nestjs/common@12.1.0(reflect-metadata@0.2.2)(rxjs@7.8.2)',
+      'resolve-pkg-maps@1.0.0',
+      'zod@4.6.5',
+    ]);
+  });
+
+  it('returns no keys for a lockfile without snapshots', () => {
+    expect(readSnapshotKeys("lockfileVersion: '9.0'\n\nimporters:\n\n  .: {}\n")).toEqual([]);
+  });
+});
+
+describe('findDuplicateCopies', () => {
+  it('accepts one snapshot per watched package and packages not installed yet', () => {
+    const entries = [
+      '@nestjs/common@12.1.0(reflect-metadata@0.2.2)(rxjs@7.8.2)',
+      '@nestjs/core@12.1.0(@nestjs/common@12.1.0(reflect-metadata@0.2.2)(rxjs@7.8.2))(rxjs@7.8.2)',
+      '@nestjs/testing@12.1.0(@nestjs/common@12.1.0)(@nestjs/core@12.1.0)',
+    ];
+    expect(findDuplicateCopies(entries)).toEqual([]);
+  });
+
+  it('reports a package that pnpm installed with two peer sets', () => {
+    const entries = ['@nestjs/core@12.1.0(rxjs@7.8.2)(a@1.0.0)', '@nestjs/core@12.1.0(rxjs@7.8.2)'];
+    expect(findDuplicateCopies(entries)).toEqual([
+      {
+        name: '@nestjs/core',
+        copies: ['@nestjs/core@12.1.0(rxjs@7.8.2)', '@nestjs/core@12.1.0(rxjs@7.8.2)(a@1.0.0)'],
+      },
+    ]);
+  });
+
+  it('does not count packages that only share a name prefix', () => {
+    const entries = [
+      '@nestjs-cls/transactional@4.0.0(x@1.0.0)',
+      '@nestjs-cls/transactional-adapter-prisma@2.0.0(x@1.0.0)',
+      '@prisma/client@7.10.0(y@1.0.0)',
+      '@prisma/client-runtime-utils@7.10.0',
+      'nestjs-cls@7.0.0(z@1.0.0)',
+    ];
+    expect(findDuplicateCopies(entries)).toEqual([]);
+  });
+});
+
 describe('claudeMdLineCount', () => {
   it('does not count a trailing newline as an extra line', () => {
     expect(claudeMdLineCount('a\nb\nc\n')).toBe(3);
@@ -110,5 +177,20 @@ describe('runHygiene', () => {
     expect(problems).toEqual([
       'tracked file under docs/client/ (must stay untracked): docs/client/a.pdf',
     ]);
+  });
+
+  it('reports duplicate copies found in the installed lockfile', () => {
+    const problems = runHygiene({
+      trackedFiles: [],
+      claudeMd: '',
+      pnpmStoreEntries: ['@prisma/client@7.10.0(pg@8.23.0)', '@prisma/client@7.10.0(pg@8.24.0)'],
+    });
+    expect(problems).toEqual([
+      '@prisma/client is installed 2 times (@prisma/client@7.10.0(pg@8.23.0), @prisma/client@7.10.0(pg@8.24.0)); align versions and peers so one copy remains',
+    ]);
+  });
+
+  it('skips the single-copy check without node_modules/.pnpm/lock.yaml', () => {
+    expect(runHygiene({ trackedFiles: [], claudeMd: '', pnpmStoreEntries: null })).toEqual([]);
   });
 });

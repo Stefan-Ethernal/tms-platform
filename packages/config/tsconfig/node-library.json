@@ -1,0 +1,5 @@
+{
+  // ESM library for Node (library.json + Node types); browser-safe packages use library.json.
+  "extends": "./library.json",
+  "compilerOptions": { "types": ["node"] }
+}

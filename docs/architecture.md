@@ -38,12 +38,21 @@ origins from one Caddy container on one Docker network.
 
 ## Dependency rule
 
-`contracts <- db <- domain <- apps`, enforced by `eslint-plugin-boundaries`
-(`packages/config/eslint/base.mjs`). `api-driver` may import only `@tms/domain/checkin` and
-`@tms/domain/shared` (`no-restricted-imports` in its eslint config). `auth-core` is Nest-free and
-Prisma-free by convention; boundaries stops it importing `db`/`domain`, and direct
-`@nestjs/*`/`@prisma/*` imports get their own `no-restricted-imports` rule when the package lands
-(phase 2) — boundaries itself does not check npm-package specifiers.
+`contracts <- db <- domain <- apps`, plus `contracts, db, logger <- bootstrap <- api` (`bootstrap`
+is `packages/nest-bootstrap`, the shared Nest bootstrap). Apps are two element types: `api`
+(`apps/api-*`) may import `contracts`, `db`, `auth-core`, `logger`, `domain` and `bootstrap`; `web`
+(`apps/web-*`) only `contracts` and `ui`. Enforced by `eslint-plugin-boundaries`
+(`packages/config/eslint/base.mjs`) for relative imports and `@tms/*` package specifiers alike:
+`eslint-import-resolver-typescript` follows each package's `exports` and pnpm's symlinks to the
+real file, so a forbidden import is reported however it is written, provided the imported
+package's `dist/` has been built; an unresolved specifier is treated as external and passes
+silently, which a fresh clone or a stale `dist/` can hit locally. The turbo `lint` task depends on
+`^build`, and CI always builds first, so the gate holds there
+(`packages/config/test/eslint-boundaries-packages.test.mjs`). `api-driver` may import only
+`@tms/domain/checkin` and `@tms/domain/shared` (`no-restricted-imports` in its eslint config).
+`auth-core` is Nest-free and Prisma-free by convention; boundaries stops it importing `db`/`domain`,
+and direct `@nestjs/*`/`@prisma/*` imports get their own `no-restricted-imports` rule when the
+package lands (phase 2) — boundaries does not check npm-package specifiers.
 
 ## Environments
 
