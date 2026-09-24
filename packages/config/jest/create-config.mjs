@@ -48,13 +48,21 @@ export function createJestConfig({ rootDir, database = false }) {
 /** @param {string} rootDir */
 function databaseHarness(rootDir) {
   const manifestPath = path.join(rootDir, 'package.json');
-  const { name } = JSON.parse(readFileSync(manifestPath, 'utf8'));
-  if (name === HARNESS_PACKAGE) {
+  const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
+  if (manifest.name === HARNESS_PACKAGE) {
     // The harness package tests its own sources: its dist/ does not exist before `build`.
     return {
       globalSetup: '<rootDir>/src/testing/global-setup.ts',
       globalTeardown: '<rootDir>/src/testing/global-teardown.ts',
     };
+  }
+  const missing =
+    `createJestConfig({ database: true }) needs "${HARNESS_PACKAGE}": "workspace:*" among the ` +
+    `dependencies of ${manifestPath} and a built ${HARNESS_PACKAGE} (turbo runs ^build first)`;
+  // Checked in the manifest, not by resolving alone: pnpm's bin shims put the hoisted
+  // node_modules/.pnpm/node_modules (every workspace package) on NODE_PATH.
+  if (!(HARNESS_PACKAGE in { ...manifest.dependencies, ...manifest.devDependencies })) {
+    throw new Error(missing);
   }
   // Resolve from the consuming package (its dependency on @tms/db), not from packages/config.
   const requireFromPackage = createRequire(manifestPath);
@@ -64,10 +72,6 @@ function databaseHarness(rootDir) {
       globalTeardown: requireFromPackage.resolve(`${HARNESS_PACKAGE}/testing/jest-global-teardown`),
     };
   } catch (error) {
-    throw new Error(
-      `createJestConfig({ database: true }) needs "${HARNESS_PACKAGE}": "workspace:*" among the ` +
-        `dependencies of ${manifestPath} and a built ${HARNESS_PACKAGE} (turbo runs ^build first)`,
-      { cause: error },
-    );
+    throw new Error(missing, { cause: error });
   }
 }

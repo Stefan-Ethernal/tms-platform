@@ -16,6 +16,11 @@
     "typecheck": { "dependsOn": ["^build", "generate"] },
     "lint": { "dependsOn": ["^build", "generate"] },
     "test": { "dependsOn": ["^build", "generate"], "outputs": [] },
+    "@tms/db#test": {
+      "dependsOn": ["^build", "generate", "build"],
+      "outputs": [],
+      "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/infra/docker-compose.yml"]
+    },
     "dev": { "cache": false, "persistent": true, "dependsOn": ["^build", "generate"] },
     "db:validate": { "cache": false },
     "db:migrate:dev": {

@@ -20,7 +20,7 @@ jobs:
   verify:
     name: verify
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v7
       - uses: pnpm/action-setup@v6
@@ -78,6 +78,8 @@ jobs:
           node-version-file: .nvmrc
           cache: pnpm
       - run: pnpm install --frozen-lockfile --filter @tms/db...
+      - name: Schema is valid
+        run: pnpm --filter @tms/db db:validate
       - name: Apply migrations
         run: pnpm --filter @tms/db db:migrate:deploy
       - name: Schema matches migrations (no drift)

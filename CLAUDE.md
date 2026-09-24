@@ -47,6 +47,8 @@ typescript-eslint its own classic compiler. Remove both workarounds once 7.1 shi
 
 - TDD: failing test first; every task ends with its own verification (`pnpm verify` or the
   task's scoped equivalent) and real output in the PR.
+- Database tests use `@tms/db/testing` (Testcontainers; Docker required); never point tests at
+  the dev database.
 - Dependency rule `contracts <- db <- domain <- apps`, `contracts, db, logger <- bootstrap <- api`,
   web apps only `contracts`/`ui` (eslint boundaries); `api-driver` only `@tms/domain/{checkin,shared}`.
 - Every route is decorated `@RequirePermissions` or `@Public` (from phase 3a); audit records are
