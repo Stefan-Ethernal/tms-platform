@@ -54,8 +54,22 @@ describe('recovery codes', () => {
 
   // Security review (task 05 fix round), finding 3 (MEDIUM): an unbounded `input` must be
   // rejected before the case-folding/replace passes run, so an unauthenticated recovery-code
-  // route (Task 14/17) cannot be made to process arbitrarily large input on every request.
+  // route (Task 14/17) cannot be made to process arbitrarily large input on every request. A
+  // plain `toBeNull()` on the result would also pass against the pre-fix code (a 65-character
+  // string of the same letter still fails the final length check), so this spies on
+  // `toUpperCase` to prove the length gate actually short-circuits before any string work, not
+  // just that the end result happens to be `null` either way (security review, task 05 second
+  // fix round, finding 1, LOW: the original version of this test didn't prove the ordering).
   it('rejects an oversized input before doing any string work', () => {
-    expect(normalizeRecoveryCode('A'.repeat(65))).toBeNull();
+    const toUpperCase = jest.spyOn(String.prototype, 'toUpperCase');
+    try {
+      expect(normalizeRecoveryCode('A'.repeat(1_000_000))).toBeNull();
+      expect(toUpperCase).not.toHaveBeenCalled();
+
+      expect(normalizeRecoveryCode('abcd-efgh-jkmn-pqrs')).toBe('ABCDEFGHJKMNPQRS');
+      expect(toUpperCase).toHaveBeenCalledTimes(1);
+    } finally {
+      toUpperCase.mockRestore();
+    }
   });
 });
