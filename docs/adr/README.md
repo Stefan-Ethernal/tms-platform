@@ -4,6 +4,6 @@ One file per decision, numbered, immutable once accepted (a new ADR supersedes a
 Template: `0000-template.md`.
 
 Accepted: 0001 two Nest processes with shared packages, 0002 Prisma as the ORM, 0004 permission
-catalogue and sync, 0007 client name kept out of the repository by convention, 0008 shared Nest
-bootstrap package. Planned: 0003 origin/CSRF/sessions, 0005 kiosk device key model, 0006
-transactions and events.
+catalogue and sync, 0006 transactions and events, 0007 client name kept out of the repository by
+convention, 0008 shared Nest bootstrap package. Planned: 0003 origin/CSRF/sessions, 0005 kiosk
+device key model.

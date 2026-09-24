@@ -81,15 +81,15 @@ Compose: `SENTRY_DSN=<dsn> GIT_SHA=$(git rev-parse --short HEAD) pnpm compose --
 
 ## Repository layout
 
-| Path                                | Content                                                                                                                                             |
-| ----------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `apps/api-admin`, `apps/api-driver` | NestJS back-office and kiosk APIs                                                                                                                   |
-| `apps/web-admin`, `apps/web-driver` | React SPAs (back office, kiosk + queue display)                                                                                                     |
-| `packages/*`                        | shared code: `config`, `db` (Prisma), `contracts`, `logger`, `nest-bootstrap` (shared Nest setup); `auth-core`, `domain`, `ui` as their phases land |
-| `infra/`                            | docker-compose, Dockerfiles, Caddyfile, smoke test                                                                                                  |
-| `e2e/`                              | Playwright tests                                                                                                                                    |
-| `tools/`                            | hygiene scripts, gitleaks wrapper, Claude Code plugin                                                                                               |
-| `docs/`                             | spec, plans, ADRs, architecture, efficiency journals                                                                                                |
+| Path                                | Content                                                                                                                                                         |
+| ----------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `apps/api-admin`, `apps/api-driver` | NestJS back-office and kiosk APIs                                                                                                                               |
+| `apps/web-admin`, `apps/web-driver` | React SPAs (back office, kiosk + queue display)                                                                                                                 |
+| `packages/*`                        | shared code: `config`, `db` (Prisma), `contracts`, `logger`, `nest-bootstrap` (shared Nest setup), `domain` (`/shared`); `auth-core`, `ui` as their phases land |
+| `infra/`                            | docker-compose, Dockerfiles, Caddyfile, smoke test                                                                                                              |
+| `e2e/`                              | Playwright tests                                                                                                                                                |
+| `tools/`                            | hygiene scripts, gitleaks wrapper, Claude Code plugin                                                                                                           |
+| `docs/`                             | spec, plans, ADRs, architecture, efficiency journals                                                                                                            |
 
 ## Documentation
 
@@ -99,5 +99,4 @@ Compose: `SENTRY_DSN=<dsn> GIT_SHA=$(git rev-parse --short HEAD) pnpm compose --
 
 ## Status
 
-Phase 0 (bootstrap) complete. Phase 1 (foundation) in progress: contracts, schema, permission sync and
-seed landed; logger, health, Sentry and the shared domain module follow.
+Phase 1 (foundation) complete. Next: phase 2 (auth-core, api-admin auth).

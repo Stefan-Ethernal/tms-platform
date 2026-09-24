@@ -38,7 +38,8 @@ typescript-eslint its own classic compiler. Remove both workarounds once 7.1 shi
 - `apps/api-admin`, `apps/api-driver` — NestJS; controllers only, no logic
 - `apps/web-admin`, `apps/web-driver` — React SPAs
 - `packages/config` — shared tsconfig/eslint/jest presets; `packages/db` — Prisma schema and migrations
-- `packages/contracts`, `auth-core`, `domain`, `logger`, `ui` — arrive in phases 1–6 (see spec §6)
+- Present: `packages/contracts`, `db` (+ `/testing`, `/nest`), `logger`, `nest-bootstrap`, `domain`
+  (`/shared` only); later `auth-core` (phase 2), `domain/admin` (3b), `domain/checkin` (4), `ui` (6)
 - `packages/nest-bootstrap` — env, app setup, health, Sentry (apps stay at `main.ts` + `AppModule`)
 - `infra/` — compose, Dockerfiles, Caddyfile, `smoke.sh`; `e2e/` — Playwright
 - `tools/scripts` — hygiene + gitleaks wrapper; `tools/claude-plugin` — Claude plugin and its tests

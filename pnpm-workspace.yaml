@@ -78,6 +78,10 @@ catalog:
   '@prisma/adapter-pg': 7.10.0
   pg: ^8.23.0
   '@types/pg': ^8.23.1
+  # domain (dual builds: every package that imports them is CommonJS, ADR-0006)
+  nestjs-cls: ^7.0.0
+  '@nestjs-cls/transactional': ^4.0.0
+  '@nestjs-cls/transactional-adapter-prisma': ^2.0.0
   # auth-core
   '@node-rs/argon2': 2.2.1
   '@zxcvbn-ts/core': 4.2.0
