@@ -2,6 +2,7 @@ packages:
   - apps/*
   - packages/*
   - e2e
+  - tools/scripts
 
 # pnpm 12 reads only auth and registry keys from .npmrc, so settings live here.
 engineStrict: true
@@ -20,6 +21,10 @@ catalog:
   globals: ^17.12.0
   prettier: ^3.9.9
   turbo: ^2.11.3
+  husky: ^9.1.7
+  lint-staged: ^17.5.1
+  '@commitlint/cli': ^21.2.3
+  '@commitlint/config-conventional': ^21.2.3
   vitest: ^5.0.1
   zod: ^4.6.5
   dotenv: ^18.0.3

@@ -1,0 +1,48 @@
+#!/usr/bin/env bash
+# Tests for gitleaks.sh: install (from the repo cache when present, otherwise download), offline
+# reuse, a re-packaged asset against the pinned digest, and a self-consistent fake release (matching
+# checksums.txt). Runs inside `turbo run test`, so it avoids the network whenever the repository
+# cache (.cache/gitleaks/<VERSION>) already holds the binary.
+set -euo pipefail
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT="$(cd "$HERE/../.." && pwd)"
+SCRIPT="$HERE/gitleaks.sh"
+VERSION="$(sed -n 's/^VERSION="\(.*\)"$/\1/p' "$SCRIPT")"
+work="$(mktemp -d)"; trap 'rm -rf "$work"' EXIT
+pass() { echo "ok   $1"; }
+fail() { echo "FAIL $1" >&2; exit 1; }
+
+# 1. install path: seed from the repository cache if present (no network), else download + verify
+if [ -x "$ROOT/.cache/gitleaks/$VERSION/gitleaks" ]; then
+  mkdir -p "$work/cache" && cp "$ROOT/.cache/gitleaks/$VERSION/gitleaks" "$work/cache/gitleaks"
+fi
+out="$(GITLEAKS_CACHE_DIR="$work/cache" "$SCRIPT" version)"
+[ "$out" = "$VERSION" ] || fail "expected version $VERSION, got '$out'"
+pass "installs and runs the pinned version"
+
+# 2. cached binary is reused without network
+out="$(GITLEAKS_CACHE_DIR="$work/cache" GITLEAKS_BASE_URL="http://127.0.0.1:9/unreachable" "$SCRIPT" version)"
+[ "$out" = "$VERSION" ] || fail "cached binary not reused"
+pass "reuses the cached binary offline"
+
+# 3. re-packaged asset (same binary, different tarball bytes): refuses to install, leaves no
+# binary. The pinned digest is per-asset, not fetched alongside the download.
+mkdir -p "$work/release"
+asset="$(GITLEAKS_PRINT_ASSET=1 "$SCRIPT")" # same os/arch mapping as the download path
+cp "$work/cache/gitleaks" "$work/gitleaks" && (cd "$work" && tar -czf "release/$asset" gitleaks)
+if GITLEAKS_CACHE_DIR="$work/cache2" GITLEAKS_BASE_URL="file://$work/release" "$SCRIPT" version 2>"$work/err"; then
+  fail "tampered checksum was accepted"
+fi
+grep -q "checksum verification FAILED" "$work/err" || fail "no checksum error message"
+[ ! -e "$work/cache2/gitleaks" ] || fail "binary cached despite failed checksum"
+pass "refuses a re-packaged asset and caches nothing"
+
+# 4. a self-consistent fake release (matching checksums.txt alongside the tampered asset) must
+# still be refused: the pinned digest is the source of truth, not a same-origin checksums file.
+(cd "$work/release" && sha256sum "$asset" > "gitleaks_${VERSION}_checksums.txt")
+if GITLEAKS_CACHE_DIR="$work/cache3" GITLEAKS_BASE_URL="file://$work/release" "$SCRIPT" version 2>"$work/err2"; then
+  fail "a self-consistent fake release was accepted"
+fi
+grep -q "checksum verification FAILED" "$work/err2" || fail "no checksum error message"
+[ ! -e "$work/cache3/gitleaks" ] || fail "binary cached despite a self-consistent fake release"
+pass "refuses a self-consistent fake release even with a matching checksums.txt"

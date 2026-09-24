@@ -1,0 +1,4 @@
+title = "TMS platform gitleaks config"
+
+[extend]
+useDefault = true

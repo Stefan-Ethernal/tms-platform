@@ -1,0 +1,3 @@
+# Typecheck and test only what changed relative to origin/main (spec section 14).
+git fetch --quiet origin main
+pnpm exec turbo run typecheck test --filter='...[origin/main]'
