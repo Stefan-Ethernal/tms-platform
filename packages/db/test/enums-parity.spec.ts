@@ -1,7 +1,7 @@
 import { DB_MIRRORED_ENUMS } from '@tms/contracts';
 import { $Enums } from '../src';
 
-/** Contract enums whose Prisma counterpart arrives with Task 06 (drivers, master data, operations). */
+/** Contract enums whose Prisma counterpart arrives with the drivers, master-data and operations schema. */
 const NOT_YET_IN_SCHEMA: readonly string[] = [
   'CheckInVia',
   'DriverType',

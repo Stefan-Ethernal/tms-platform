@@ -7,7 +7,7 @@ export * from './generated/prisma/client';
 export interface CreatePrismaClientOptions {
   /** postgresql:// URL: `DATABASE_URL` in the apps and the migrate image, `testDatabaseUrl()` in tests. */
   url: string;
-  /** Bound on acquiring a connection so a black-holed database fails fast instead of hanging (health, Task 12). */
+  /** Bound on acquiring a connection so a black-holed database fails fast instead of hanging (health checks). */
   connectTimeoutMs?: number;
 }
 
