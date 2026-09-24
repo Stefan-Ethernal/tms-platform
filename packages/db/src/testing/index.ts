@@ -3,6 +3,7 @@ import { HARNESS_ENV, WORKER_PLACEHOLDER } from './constants';
 
 export { POSTGRES_TEST_IMAGE } from './constants';
 export * from './fixtures';
+export { startFaultProxy, type FaultMode, type FaultProxy } from './fault-proxy';
 
 const CONNECT_TIMEOUT_MS = 5_000;
 

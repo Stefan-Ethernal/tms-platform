@@ -20,3 +20,7 @@ The Prisma CLI (`prisma`) is an **optional** dependency. `pnpm install` installs
 CI, the `migrate` image built with `pnpm deploy --prod`), while the API images deploy with
 `--no-optional` and ship only `@prisma/client`, the driver adapter and `pg`. Nothing under `src/`
 may import `prisma` at runtime; only `prisma.config.ts` and the `dev-setup` CLI (local `predev`) use it.
+
+Nest applications use `PrismaModule.forRoot({ url })` from `@tms/db/nest` instead of `createPrismaClient` (global
+`PrismaService` over the same adapter and connect timeout, lazy connect, `$disconnect` on shutdown); `@nestjs/common` is an
+optional peer, so the CLIs and the migrate image never load Nest.
