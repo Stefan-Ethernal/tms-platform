@@ -5,6 +5,13 @@ import type { App } from 'supertest/types';
 import { PrismaService } from '@tms/db/nest';
 import { testDatabaseUrl } from '@tms/db/testing';
 import { configureApp, loadEnv } from '@tms/nest-bootstrap';
+import {
+  AUDIT_APP,
+  AuditService,
+  ClsService,
+  REQUEST_CONTEXT_KEY,
+  type RequestContext,
+} from '@tms/domain/shared';
 import { AppModule, envSchema } from '../src/app.module';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
@@ -15,6 +22,28 @@ class ProbeController {
   @Get()
   get(): { ok: true } {
     return { ok: true };
+  }
+}
+
+/**
+ * Test-only route on the real AppModule (CoreModule + SharedModule, exactly as bootstrapApi wires
+ * it): writes an audit row outside a transaction and echoes the CLS request id, so a test can check
+ * the response header, the CLS id and the audit row's context all agree for the same request.
+ */
+@Controller('probe')
+class AuditProbeController {
+  constructor(
+    private readonly audit: AuditService,
+    private readonly cls: ClsService,
+  ) {}
+
+  @Get('audit')
+  async auditProbe(): Promise<{ clsId: string; contextId: string | undefined }> {
+    await this.audit.record({ action: 'auth.invite.issued', outcome: 'SUCCESS' });
+    return {
+      clsId: this.cls.getId(),
+      contextId: this.cls.get<RequestContext | undefined>(REQUEST_CONTEXT_KEY)?.requestId,
+    };
   }
 }
 
@@ -30,7 +59,7 @@ describe('api-driver skeleton (e2e)', () => {
     });
     const moduleRef = await Test.createTestingModule({
       imports: [AppModule.forRoot(env)],
-      controllers: [ProbeController],
+      controllers: [ProbeController, AuditProbeController],
     }).compile();
     sigtermListenersBefore = process.listenerCount('SIGTERM');
     app = configureApp(moduleRef.createNestApplication());
@@ -75,5 +104,28 @@ describe('api-driver skeleton (e2e)', () => {
     const res = await request(app.getHttpServer()).get('/api/health').expect(200);
     expect(res.text).toBe('{"status":"ok","service":"api-driver"}');
     expect(res.headers['cache-control']).toBe('no-store');
+  });
+
+  it('registers SharedModule with AUDIT_APP=DRIVER, not any other app', () => {
+    expect(app.get(AUDIT_APP)).toBe('DRIVER');
+  });
+
+  it('agrees on the request id across the response header, CLS and the audit row it writes', async () => {
+    const res = await request(app.getHttpServer())
+      .get('/api/probe/audit')
+      .set('User-Agent', 'app-module-probe/api-driver')
+      .expect(200);
+    const requestId = res.headers['x-request-id'] as string;
+    expect(requestId).toMatch(UUID);
+    expect(res.body).toEqual({ clsId: requestId, contextId: requestId });
+    const row = await app.get(PrismaService).auditLog.findFirst({
+      where: { action: 'auth.invite.issued', userAgent: 'app-module-probe/api-driver' },
+    });
+    expect(row).toMatchObject({
+      app: 'DRIVER',
+      action: 'auth.invite.issued',
+      outcome: 'SUCCESS',
+      userAgent: 'app-module-probe/api-driver',
+    });
   });
 });

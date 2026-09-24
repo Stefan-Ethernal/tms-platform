@@ -18,7 +18,7 @@ export interface CreatePrismaClientOptions {
  */
 export function createPrismaClient({
   url,
-  connectTimeoutMs = 5000,
+  connectTimeoutMs,
 }: CreatePrismaClientOptions): PrismaClient {
   return new PrismaClient({ adapter: createPgAdapter(url, connectTimeoutMs) });
 }

@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import {
+  API_DOCKERFILE_PATH,
   CLAUDE_MD_MAX_LINES,
   claudeMdLineCount,
   findDuplicateCopies,
   findForbiddenDocuments,
+  findUnscopedOptionalPruning,
   readSnapshotKeys,
   runHygiene,
 } from './check-hygiene.mjs';
@@ -140,6 +142,37 @@ describe('claudeMdLineCount', () => {
   });
 });
 
+describe('findUnscopedOptionalPruning', () => {
+  const scoped = [
+    'RUN pnpm --filter "@tms/${APP}" deploy --legacy --prod /out \\',
+    ' && rm -rf /out/node_modules/.pnpm/prisma@* /out/node_modules/.pnpm/@prisma+engines@*',
+  ].join('\n');
+
+  it('accepts a scoped removal with no --no-optional flag', () => {
+    expect(findUnscopedOptionalPruning(scoped)).toEqual([]);
+  });
+
+  it('flags pnpm deploy --no-optional even when the scoped removal is also present', () => {
+    const text = scoped.replace('deploy --legacy --prod', 'deploy --legacy --prod --no-optional');
+    const problems = findUnscopedOptionalPruning(text);
+    expect(problems).toHaveLength(1);
+    expect(problems[0]).toMatch(/--no-optional/);
+    expect(problems[0]).toContain(API_DOCKERFILE_PATH);
+  });
+
+  it('flags a missing scoped Prisma removal after deploy', () => {
+    const text = 'RUN pnpm --filter "@tms/${APP}" deploy --legacy --prod /out';
+    const problems = findUnscopedOptionalPruning(text);
+    expect(problems).toHaveLength(1);
+    expect(problems[0]).toMatch(/missing the explicit removal/);
+  });
+
+  it('reports both problems for a Dockerfile that regresses to --no-optional with nothing else', () => {
+    const text = 'RUN pnpm --filter "@tms/${APP}" deploy --legacy --prod --no-optional /out';
+    expect(findUnscopedOptionalPruning(text)).toHaveLength(2);
+  });
+});
+
 describe('runHygiene', () => {
   it('reports nothing for a clean repository', () => {
     expect(runHygiene({ trackedFiles: ['a.ts'], claudeMd: 'short\n' })).toEqual([]);
@@ -192,5 +225,21 @@ describe('runHygiene', () => {
 
   it('skips the single-copy check without node_modules/.pnpm/lock.yaml', () => {
     expect(runHygiene({ trackedFiles: [], claudeMd: '', pnpmStoreEntries: null })).toEqual([]);
+  });
+
+  it('reports a regressed api.Dockerfile that prunes optional dependencies with --no-optional', () => {
+    const problems = runHygiene({
+      trackedFiles: [],
+      claudeMd: '',
+      apiDockerfile: 'RUN pnpm --filter "@tms/${APP}" deploy --legacy --prod --no-optional /out',
+    });
+    expect(problems).toEqual([
+      expect.stringContaining('--no-optional'),
+      expect.stringContaining('missing the explicit removal'),
+    ]);
+  });
+
+  it('skips the Dockerfile check without infra/docker/api.Dockerfile', () => {
+    expect(runHygiene({ trackedFiles: [], claudeMd: '', apiDockerfile: null })).toEqual([]);
   });
 });

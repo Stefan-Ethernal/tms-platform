@@ -11,7 +11,9 @@ import { Clock, SystemClock } from './clock';
 import { type IncomingRequest, REQUEST_CONTEXT_KEY, requestContextFrom } from './request-context';
 
 export interface SharedModuleOptions {
-  readonly app: AuditApp;
+  // SYSTEM is written directly by the permission sync and the seed, never by an app's own
+  // SharedModule.forRoot() call.
+  readonly app: Exclude<AuditApp, 'SYSTEM'>;
 }
 
 @Global()

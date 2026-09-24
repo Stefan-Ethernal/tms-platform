@@ -98,38 +98,56 @@ Approach values: `inline` (Claude in main session), `subagent` (dispatched agent
 One line per item: what, why, and the phase that owns it. Sourced from the final whole-branch
 review and the architect reviews of the published PR stack.
 
-- Phase 1 (task 1, before any cross-package import lands): `eslint-plugin-boundaries` never fires
+- ~~Phase 1 (task 1, before any cross-package import lands): `eslint-plugin-boundaries` never fires
   for `@tms/*` specifiers (only relative imports resolve) — add
   `eslint-import-resolver-typescript` and a specifier-based test; phase 0 has no package pair the
   rule could protect yet, but phase 1 is the first to add one (architect review, workspace group,
-  W1).
-- Phase 1: decide where the shared Nest bootstrap lives before a third copy of it appears —
-  `@tms/logger` or a small bootstrap package (final review).
-- Phase 1: a `node-library` tsconfig preset vs the package-local `"types": ["node"]` added to
+  W1).~~ — done: `eslint-import-resolver-typescript` wired into `packages/config/eslint/base.mjs`
+  (W1).
+- ~~Phase 1: decide where the shared Nest bootstrap lives before a third copy of it appears —
+  `@tms/logger` or a small bootstrap package (final review).~~ — done: `packages/nest-bootstrap`
+  (`@tms/nest-bootstrap`).
+- ~~Phase 1: a `node-library` tsconfig preset vs the package-local `"types": ["node"]` added to
   `packages/db/tsconfig.json` — decide before `auth-core`/`domain`/`logger` each repeat it (final
-  review).
-- Phase 1: the `migrate` image is 760MB — switch to `deploy --prod`, add
+  review).~~ — done: `packages/config/tsconfig/node-library.json`.
+- ~~Phase 1: the `migrate` image is 760MB — switch to `deploy --prod`, add
   `COPY --chown=node:node` (currently root-owned under `USER node`), and reconsider the
-  `@prisma/dev` footprint it pulls in (final review).
-- Phase 1: `predev` switches from `prisma migrate deploy` to `migrate dev` + permission sync, per
-  spec D12 (final review; also the subject of ADR-0002's D10-8 fix).
-- Phase 1: turbo's `test` task prints "no output files found" noise because test tasks declare
+  `@prisma/dev` footprint it pulls in (final review).~~ — done, with two of the three sub-items
+  decided differently than proposed: Task 09 switched the build to `pnpm deploy --legacy --prod`;
+  `/app` stayed root-owned under `USER node` on purpose (deviation 10 — the runtime user must not
+  be able to rewrite its own code) instead of `COPY --chown`; the `@prisma/dev` footprint was
+  measured (`/app` 336MB) and accepted inside a new CI size budget (`MIGRATE_APP_MAX_BYTES`) rather
+  than pruned further.
+- ~~Phase 1: `predev` switches from `prisma migrate deploy` to `migrate dev` + permission sync, per
+  spec D12 (final review; also the subject of ADR-0002's D10-8 fix).~~ — done, though the verb kept
+  is `migrate deploy`, not `migrate dev`: `predev`/`db:setup`
+  (`packages/db/src/cli/dev-setup.ts`) runs `migrate deploy`, a drift check, the permission sync and
+  the seed, in that order.
+- ~~Phase 1: turbo's `test` task prints "no output files found" noise because test tasks declare
   `outputs: ["coverage/**"]` with no coverage configured yet — set `outputs: []` (architect review,
-  docs group, D10-3).
-- Phase 1: narrow PR #3's body claim "Review Focus 4 is tested" to what is actually covered, and add
-  a process-level `PORT` env test (architect review, apps group, A-4).
-- Phase 1: `HOST` env default — bind `127.0.0.1` in dev vs `0.0.0.0` in compose — is undecided
-  (architect review, apps group, A-6).
-- Phase 1: a cross-origin negative check once api-admin and api-driver actually diverge enough for
-  one to matter (architect review, apps group, A-8).
-- Phase 1: land the kiosk `/api` → api-driver routing-identity check (today's smoke/e2e tests can't
+  docs group, D10-3).~~ — done: `turbo.json`'s `test` and `@tms/db#test` tasks both set
+  `outputs: []`.
+- ~~Phase 1: narrow PR #3's body claim "Review Focus 4 is tested" to what is actually covered, and add
+  a process-level `PORT` env test (architect review, apps group, A-4).~~ — done:
+  `apps/api-admin/test/env.spec.ts` and `apps/api-driver/test/env.spec.ts` cover `PORT`.
+- ~~Phase 1: `HOST` env default — bind `127.0.0.1` in dev vs `0.0.0.0` in compose — is undecided
+  (architect review, apps group, A-6).~~ — done: `listenHost()` in
+  `packages/nest-bootstrap/src/env.ts` (127.0.0.1 in development, 0.0.0.0 otherwise, or `HOST`).
+- Phase 2 (re-tagged from phase 1 — the journal's own Task 12a/b entry already deferred this
+  alongside A-7): a cross-origin negative check once api-admin and api-driver actually diverge
+  enough for one to matter (architect review, apps group, A-8).
+- ~~Phase 1: land the kiosk `/api` → api-driver routing-identity check (today's smoke/e2e tests can't
   tell api-admin and api-driver apart by their identical 404s) once D5's `/health` exists and
   returns the service name; a stop-api-admin smoke step would make smoke stateful, so this waits for
-  `/health` instead (architect review, infra group, I7-1).
-- Phase 1: API/Caddy healthchecks, restart policies and a migrate-ordering proof, together with
-  `/health` (architect review, infra group, M6-6).
-- Phase 1/4: split the single `app` boundaries element type into separate api/web element types once
-  `packages/domain` lands (architect review, workspace group, W5).
+  `/health` instead (architect review, infra group, I7-1).~~ — done: `/api/health` returns
+  `{status,service}` and `infra/smoke.sh`'s `check_origin` asserts the service name per API (I7-1).
+- ~~Phase 1: API/Caddy healthchecks, restart policies and a migrate-ordering proof, together with
+  `/health` (architect review, infra group, M6-6).~~ — done: `infra/docker-compose.yml` has
+  healthchecks on both APIs, `restart: unless-stopped`, and `depends_on: … condition:
+  service_completed_successfully` ordering the APIs after `migrate` (M6-6).
+- ~~Phase 1/4: split the single `app` boundaries element type into separate api/web element types once
+  `packages/domain` lands (architect review, workspace group, W5).~~ — done:
+  `packages/config/eslint/base.mjs` already has separate `api`/`web` boundaries element types (W5).
 - Phase 2: remove the `X-Powered-By` header via helmet — deferred because there is no auth yet to
   exercise it meaningfully (architect review, apps group, A-7).
 - Phase 2: give `auth-core` its own `no-restricted-imports` rule against `@nestjs/*`/`@prisma/*`

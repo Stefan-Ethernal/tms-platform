@@ -69,6 +69,7 @@ services:
       PORT: '3001'
       DATABASE_URL: *database-url
       SENTRY_DSN: ${SENTRY_DSN:-}
+      SENTRY_ENVIRONMENT: ${SENTRY_ENVIRONMENT:-}
       LOG_DIR: /var/log/tms
       LOG_FILE_ENABLED: 'true'
     # Read-only root filesystem (deviation 10); the writable paths are the logs volume and /tmp.
@@ -108,6 +109,7 @@ services:
       PORT: '3002'
       DATABASE_URL: *database-url
       SENTRY_DSN: ${SENTRY_DSN:-}
+      SENTRY_ENVIRONMENT: ${SENTRY_ENVIRONMENT:-}
       LOG_DIR: /var/log/tms
       LOG_FILE_ENABLED: 'true'
     read_only: true

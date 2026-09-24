@@ -9,11 +9,15 @@ RUN npm install -g "$(node -p "require('./package.json').packageManager")"
 COPY . .
 RUN --mount=type=cache,id=pnpm-store,target=/root/.local/share/pnpm/store \
     pnpm install --frozen-lockfile --filter "@tms/${APP}..."
-# Workspace dependencies first (topological), then the app. --no-optional keeps the Prisma CLI,
-# an optional dependency of @tms/db once the API imports it, out of the image.
+# Workspace dependencies first (topological), then the app. `pnpm deploy --prod` on its own still
+# keeps every OTHER package's optional dependency (e.g. a native platform binary shipped as an
+# optional package), which the image needs; only the Prisma CLI — @tms/db's own optional dependency,
+# never required at API runtime — is removed from the deployed tree explicitly afterward, instead of
+# pruning every optional dependency in the graph with the blunter --no-optional flag.
 RUN pnpm --filter "@tms/${APP}..." run --if-present generate \
  && pnpm --filter "@tms/${APP}..." run build \
- && pnpm --filter "@tms/${APP}" deploy --legacy --prod --no-optional /out
+ && pnpm --filter "@tms/${APP}" deploy --legacy --prod /out \
+ && rm -rf /out/node_modules/.pnpm/prisma@* /out/node_modules/.pnpm/@prisma+engines@*
 
 FROM node:26-bookworm-slim AS runtime
 ENV NODE_ENV=production LOG_DIR=/var/log/tms
