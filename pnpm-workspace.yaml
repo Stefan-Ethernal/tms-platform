@@ -92,6 +92,14 @@ allowBuilds:
   cpu-features: false
   protobufjs: false
 
+# The Prisma transaction adapter declares the CLI as a required peer, but only @prisma/client
+# is needed at runtime; optional keeps the `--no-optional` API deploys valid.
+packageExtensions:
+  '@nestjs-cls/transactional-adapter-prisma':
+    peerDependenciesMeta:
+      prisma:
+        optional: true
+
 minimumReleaseAgeExclude:
   - '@turbo/darwin-64@2.11.3'
   - '@turbo/darwin-arm64@2.11.3'

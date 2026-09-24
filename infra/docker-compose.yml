@@ -37,13 +37,20 @@ services:
       timeout: 3s
       retries: 12
 
-  # One-shot: applies migrations (phase 1 adds the permission sync). Never runs inside an app (D12).
+  # One-shot (D12, deviation 5): applies migrations, syncs the permission catalogue and seeds
+  # (create-only). Never runs inside an app; the APIs start only after it exited 0.
   migrate:
     build:
       context: ..
       dockerfile: infra/docker/migrate.Dockerfile
     environment:
       DATABASE_URL: *database-url
+      BOOTSTRAP_ADMIN_EMAIL: ${BOOTSTRAP_ADMIN_EMAIL:-admin@example.com}
+      BOOTSTRAP_ADMIN_USERNAME: ${BOOTSTRAP_ADMIN_USERNAME:-admin}
+    # Code stays root-owned and immutable (deviation 10); Prisma and the seed write nothing to disk.
+    read_only: true
+    tmpfs:
+      - /tmp
     depends_on:
       postgres:
         condition: service_healthy

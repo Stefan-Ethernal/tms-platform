@@ -1,8 +1,7 @@
 # syntax=docker/dockerfile:1.7
 FROM node:26-bookworm-slim AS build
-# Installed here too (matching the runtime stage) so Prisma's postinstall detects the real
-# OpenSSL version and fetches the matching engine at build time, instead of the query engine
-# defaulting to openssl-1.1.x and trying to re-fetch/write itself at container start.
+# OpenSSL here too (matching the runtime stage): the @prisma/engines postinstall detects the
+# OpenSSL version and downloads the matching schema engine at build time.
 RUN apt-get update && apt-get install -y --no-install-recommends openssl ca-certificates \
  && rm -rf /var/lib/apt/lists/*
 WORKDIR /repo
@@ -12,14 +11,20 @@ RUN npm install -g "$(node -p "require('./package.json').packageManager")"
 COPY . .
 RUN --mount=type=cache,id=pnpm-store,target=/root/.local/share/pnpm/store \
     pnpm install --frozen-lockfile --filter "@tms/db..."
-RUN pnpm --filter "@tms/db" deploy --legacy /out
+# The Prisma client first, then topological builds (@tms/contracts, then @tms/db). --prod keeps the
+# optional Prisma CLI and drops every devDependency.
+RUN pnpm --filter "@tms/db" run generate \
+ && pnpm --filter "@tms/db..." run build \
+ && pnpm --filter "@tms/db" deploy --legacy --prod /out
 
 FROM node:26-bookworm-slim AS runtime
-# Prisma's schema engine needs OpenSSL on Debian slim images.
+# The schema engine behind `prisma migrate deploy` links against OpenSSL.
 RUN apt-get update && apt-get install -y --no-install-recommends openssl ca-certificates \
  && rm -rf /var/lib/apt/lists/*
+ENV NODE_ENV=production CHECKPOINT_DISABLE=1
 WORKDIR /app
+# Root-owned on purpose (deviation 10): the runtime user cannot rewrite its own code.
 COPY --from=build /out .
 USER node
-# Phase 1 appends the permission sync: node dist/sync-permissions.js
-CMD ["node_modules/.bin/prisma", "migrate", "deploy"]
+# D12 + deviation 5: migrations, then the create-only seed, which runs the permission sync first.
+CMD ["sh", "-c", "node_modules/.bin/prisma migrate deploy --config ./prisma.config.ts && exec node dist/cli/seed.js"]

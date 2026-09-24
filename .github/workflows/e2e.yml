@@ -31,6 +31,17 @@ jobs:
           pnpm compose --profile full up -d --build
       - name: Smoke test the stack
         run: infra/smoke.sh --full
+      - name: Migrate image budget
+        env:
+          # budget measured for this image's /app plus 10 %; raise it only with a reason in the PR.
+          MIGRATE_APP_MAX_BYTES: '355000000'
+        run: |
+          size=$(docker run --rm --entrypoint du tms-migrate -sb /app | cut -f1)
+          echo "migrate /app: ${size} bytes (budget ${MIGRATE_APP_MAX_BYTES}); whole image: $(docker image inspect -f '{{.Size}}' tms-migrate) bytes"
+          if [ "$size" -gt "$MIGRATE_APP_MAX_BYTES" ]; then
+            echo "::error::migrate image /app is ${size} bytes, over the ${MIGRATE_APP_MAX_BYTES} budget"
+            exit 1
+          fi
       - name: Install Chromium with OS dependencies
         run: pnpm --filter @tms/e2e exec playwright install --with-deps chromium
       - name: Playwright
