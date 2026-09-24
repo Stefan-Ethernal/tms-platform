@@ -50,4 +50,17 @@ describe('checkPassword (section 8: min 12 characters, zxcvbn ≥ 3)', () => {
       expect(performance.now() - started).toBeLessThan(1000);
     }
   });
+
+  // Security review (task 04 fix round), finding 4 (LOW): `userInputs` had no cap of its own, so
+  // an attacker-sized list (or a single attacker-sized string that the flatMap split multiplies
+  // into many entries) could defeat the scoring-cost bound the password-length checks above give
+  // only to `password` itself.
+  it('bounds the scoring cost of an oversized userInputs list', () => {
+    const started = performance.now();
+    checkPassword(
+      'Correct-Horse-Battery-Staple-42',
+      Array.from({ length: 100_000 }, () => 'x'.repeat(10_000)),
+    );
+    expect(performance.now() - started).toBeLessThan(1000);
+  });
 });

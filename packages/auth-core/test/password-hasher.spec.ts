@@ -1,3 +1,4 @@
+import { inspect } from 'node:util';
 import { Argon2idPasswordHasher, DEFAULT_ARGON2_PARAMS } from '../src';
 
 const pepper = Buffer.alloc(32, 7);
@@ -47,5 +48,35 @@ describe('Argon2idPasswordHasher', () => {
     expect(await hasher.verify(await hasher.hash('short-but-fine-123'), 'x'.repeat(1025))).toBe(
       false,
     );
+  });
+
+  // Security review (task 04 fix round), finding 1 (MEDIUM): the pepper must not be visible via
+  // util.inspect/console.log or JSON.stringify of the hasher instance (a plain Buffer field
+  // serialises as {type:'Buffer', data:[...]}, printing every byte).
+  it('redacts the pepper from util.inspect and JSON.stringify', () => {
+    const rendered = inspect(hasher, { showHidden: true, depth: Infinity });
+    expect(rendered).not.toMatch(/Buffer|07 07 07|\[7,7,7/);
+    expect(JSON.stringify(hasher)).not.toContain('"data"');
+    expect(JSON.parse(JSON.stringify(hasher))).toEqual({
+      pepper: {},
+      params: { memoryCost: 19456, timeCost: 2, parallelism: 1 },
+    });
+  });
+
+  // Security review (task 04 fix round), finding 2 (MEDIUM): DEFAULT_ARGON2_PARAMS must be frozen
+  // and a caller-supplied params object must be copied, so a later mutation of either cannot
+  // silently weaken an already-constructed hasher's cost parameters.
+  it('is not affected by a later mutation of DEFAULT_ARGON2_PARAMS or a caller-supplied params object', async () => {
+    expect(Object.isFrozen(DEFAULT_ARGON2_PARAMS)).toBe(true);
+    expect(() => {
+      (DEFAULT_ARGON2_PARAMS as { timeCost: number }).timeCost = 1;
+    }).toThrow(TypeError);
+
+    const mutableParams = { ...DEFAULT_ARGON2_PARAMS };
+    const isolated = new Argon2idPasswordHasher({ pepper, params: mutableParams });
+    mutableParams.timeCost = 1;
+    const h = await isolated.hash('x-password-long-enough');
+    expect(h).toMatch(/,t=2,/);
+    expect(isolated.needsRehash(h)).toBe(false);
   });
 });
