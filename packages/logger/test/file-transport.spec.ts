@@ -69,6 +69,27 @@ async function end(transport: Transport): Promise<void> {
   await closed;
 }
 
+// pino-roll's size-triggered roll waits for a 'drain' event inside the worker thread, and its
+// retention cleanup (removeOldFiles) runs as a fire-and-forget promise that the roll callback never
+// awaits — neither is signalled back to this (main) thread, and `end(transport)`'s 'close' event
+// guarantees only that the file descriptor finished closing, not that a pending roll or cleanup had
+// already run. A fixed sleep tuned to one machine's I/O speed is not a reliable way to wait for that
+// worker-thread async work, so poll the directory for the expected end-state instead, generously
+// bounded so a slower CI runner still gets there.
+async function waitForDir(
+  dir: string,
+  predicate: (files: string[]) => boolean,
+  { timeoutMs = 5000, intervalMs = 25 }: { timeoutMs?: number; intervalMs?: number } = {},
+): Promise<string[]> {
+  const deadline = Date.now() + timeoutMs;
+  for (;;) {
+    const files = existsSync(dir) ? readdirSync(dir) : [];
+    if (predicate(files)) return files;
+    if (Date.now() > deadline) return files;
+    await sleep(intervalMs);
+  }
+}
+
 describe('file transport', () => {
   it('rolls into <app>.<yyyy-MM-dd>.<n>.log files, within the retention limit, without secrets', async () => {
     const opts = options(tempDir());
@@ -76,7 +97,10 @@ describe('file transport', () => {
     await logInBatches(pino(buildPinoOptions(opts), transport), 30);
     await end(transport);
     const appDir = path.join(opts.file.dir, 'api-admin');
-    const files = readdirSync(appDir);
+    const files = await waitForDir(
+      appDir,
+      (candidates) => candidates.length >= 2 && candidates.length <= opts.file.retentionDays + 1,
+    );
     expect(files.length).toBeGreaterThanOrEqual(2);
     expect(files.length).toBeLessThanOrEqual(opts.file.retentionDays + 1);
     expect(files.every((file) => FILE_NAME.test(file))).toBe(true);
@@ -100,9 +124,11 @@ describe('file transport', () => {
     const transport = rollTransport(opts);
     await logInBatches(pino(buildPinoOptions(opts), transport), 20);
     await end(transport);
-    expect(
-      readdirSync(path.join(dir, 'api-admin')).filter((file) => file.includes('.2026-01-')),
-    ).toEqual([]);
+    const adminFiles = await waitForDir(
+      path.join(dir, 'api-admin'),
+      (candidates) => candidates.filter((file) => file.includes('.2026-01-')).length === 0,
+    );
+    expect(adminFiles.filter((file) => file.includes('.2026-01-'))).toEqual([]);
     expect(readdirSync(path.join(dir, 'api-driver')).sort()).toEqual(driverBefore);
     expect(readAll(path.join(dir, 'api-driver'))).toContain('"old":"api-driver 2026-01-04"');
   }, 20_000);
