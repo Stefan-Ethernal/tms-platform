@@ -64,8 +64,10 @@ catalog:
   # testing (Testcontainers pinned exactly: the harness was verified against 12.1.0)
   testcontainers: 12.1.0
   '@testcontainers/postgresql': 12.1.0
-  # data
-  prisma: ^7.10.0
+  # data (prisma, @prisma/client and @prisma/adapter-pg must share one exact version)
+  prisma: 7.10.0
+  '@prisma/client': 7.10.0
+  '@prisma/adapter-pg': 7.10.0
   pg: ^8.23.0
   '@types/pg': ^8.23.1
 
