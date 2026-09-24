@@ -1,3 +1,5 @@
+import type { LoadingPointKind } from '@tms/contracts';
+
 export const SEED_PRODUCTS: readonly { code: string; name: string }[] = [
   { code: 'DIESEL', name: 'Diesel' },
   { code: 'GASOLINE_95', name: 'Gasoline 95' },
@@ -6,7 +8,7 @@ export const SEED_PRODUCTS: readonly { code: string; name: string }[] = [
   { code: 'HEATING_OIL', name: 'Heating oil' },
 ];
 
-export type SeedLoadingPointKind = 'TRUCK_ISLAND' | 'RAIL_TRACK';
+export type SeedLoadingPointKind = LoadingPointKind;
 
 export const SEED_LOADING_POINTS: readonly {
   code: string;

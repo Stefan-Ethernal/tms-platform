@@ -32,6 +32,35 @@ export const SINGLE_COPY_PACKAGES = [
   '@prisma/client',
 ];
 
+export const API_DOCKERFILE_PATH = 'infra/docker/api.Dockerfile';
+
+/**
+ * `pnpm deploy --no-optional` prunes every optional dependency edge in the graph, not just
+ * `@tms/db`'s optional Prisma CLI — including another real dependency's optional platform binary
+ * (e.g. a native addon shipped only as an optional package). The API Dockerfile must keep the
+ * Prisma CLI out of the image by removing it from the deployed tree explicitly instead, so this
+ * class of bug (a real dependency's optional package silently pruned) cannot recur unnoticed.
+ *
+ * @param {string} text contents of infra/docker/api.Dockerfile
+ */
+export function findUnscopedOptionalPruning(text) {
+  const problems = [];
+  if (/\bpnpm\b[^\n]*--no-optional/.test(text)) {
+    problems.push(
+      `${API_DOCKERFILE_PATH}: pnpm deploy uses --no-optional, which prunes every optional ` +
+        'dependency in the graph, not just the Prisma CLI; remove Prisma from /out explicitly ' +
+        'instead (rm -rf on its node_modules paths after deploy)',
+    );
+  }
+  if (!/rm -rf[^\n]*node_modules\/\.pnpm\/prisma@\*/.test(text)) {
+    problems.push(
+      `${API_DOCKERFILE_PATH}: missing the explicit removal of the Prisma CLI from the deployed ` +
+        '/out tree after `pnpm deploy`',
+    );
+  }
+  return problems;
+}
+
 /** @param {string[]} trackedFiles */
 export function findForbiddenDocuments(trackedFiles) {
   return trackedFiles.filter(
@@ -84,11 +113,17 @@ export function findDuplicateCopies(storeEntries, packages = SINGLE_COPY_PACKAGE
 }
 
 /**
- * @param {{ trackedFiles: string[], claudeMd: string | null, pnpmStoreEntries?: string[] | null }} input
+ * @param {{ trackedFiles: string[], claudeMd: string | null, pnpmStoreEntries?: string[] | null, apiDockerfile?: string | null }} input
  *   `pnpmStoreEntries` (snapshot keys of the installed lockfile) is null when
- *   node_modules/.pnpm/lock.yaml does not exist (check skipped).
+ *   node_modules/.pnpm/lock.yaml does not exist (check skipped). `apiDockerfile` (contents of
+ *   infra/docker/api.Dockerfile) is null when the file does not exist (check skipped).
  */
-export function runHygiene({ trackedFiles, claudeMd, pnpmStoreEntries = null }) {
+export function runHygiene({
+  trackedFiles,
+  claudeMd,
+  pnpmStoreEntries = null,
+  apiDockerfile = null,
+}) {
   const problems = findForbiddenDocuments(trackedFiles).map((f) =>
     f.startsWith(CLIENT_DOCS_DIR)
       ? `tracked file under docs/client/ (must stay untracked): ${f}`
@@ -109,6 +144,9 @@ export function runHygiene({ trackedFiles, claudeMd, pnpmStoreEntries = null }) 
       );
     }
   }
+  if (apiDockerfile !== null) {
+    problems.push(...findUnscopedOptionalPruning(apiDockerfile));
+  }
   return problems;
 }
 
@@ -123,8 +161,12 @@ function main() {
   const pnpmStoreEntries = existsSync(installedLockfile)
     ? readSnapshotKeys(readFileSync(installedLockfile, 'utf8'))
     : null;
+  const apiDockerfilePath = path.join(repoRoot, API_DOCKERFILE_PATH);
+  const apiDockerfile = existsSync(apiDockerfilePath)
+    ? readFileSync(apiDockerfilePath, 'utf8')
+    : null;
 
-  const problems = runHygiene({ trackedFiles, claudeMd, pnpmStoreEntries });
+  const problems = runHygiene({ trackedFiles, claudeMd, pnpmStoreEntries, apiDockerfile });
   for (const p of problems) console.error(`hygiene: ${p}`);
   if (problems.length > 0) process.exit(1);
   const singleCopy = pnpmStoreEntries === null ? 'single-copy check skipped' : 'single copies ok';

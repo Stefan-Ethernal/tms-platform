@@ -8,7 +8,7 @@ import type { CreatePrismaClientOptions } from '../index';
  * first query, so an unreachable database never fails startup; the health endpoint reports it.
  */
 export class PrismaService extends PrismaClient implements OnModuleDestroy {
-  constructor({ url, connectTimeoutMs = 5000 }: CreatePrismaClientOptions) {
+  constructor({ url, connectTimeoutMs }: CreatePrismaClientOptions) {
     // `extends PrismaClient` must pass a built adapter into `super()` directly, so this cannot
     // delegate to `createPrismaClient`; `createPgAdapter` keeps the adapter construction itself
     // shared with it instead.

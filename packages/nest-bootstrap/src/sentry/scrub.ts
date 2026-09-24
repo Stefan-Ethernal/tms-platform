@@ -6,8 +6,11 @@ import {
   scrubString,
   scrubUrl,
 } from '@tms/contracts/security';
+// Type-only: erased at compile time, so this stays within the Nest-free boundary that
+// no-restricted-imports enforces on src/sentry/** (instrument.ts loads this before Nest).
+import type { LoggerOptions } from '@tms/logger';
 
-export type SentryApp = 'api-admin' | 'api-driver';
+export type SentryApp = LoggerOptions['app'];
 
 type QueryString = NonNullable<RequestEventData['query_string']>;
 
