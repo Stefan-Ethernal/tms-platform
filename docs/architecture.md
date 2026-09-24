@@ -323,6 +323,28 @@ erDiagram
 
 ## RBAC and permission sync — phase 3a/3b
 
+### Permission sync (phase 1)
+
+The catalogue (`PERMISSIONS` in `@tms/contracts`) owns the codes; the database owns the
+admin-edited name/description and the role grants. `planPermissionSync` (pure) turns the current
+rows and the catalogue into a `SyncPlan`; `syncPermissionsInTx` applies it in one transaction under
+advisory lock 7301 and returns a `SyncReport`, which the CLI, the seed and the `migrate` one-shot print
+as one JSON line. Rules: insert-only texts, `renamedFrom` moves grants and removes the old code, a
+retired code is deprecated while referenced and deleted otherwise, and roles locked in
+`SEEDED_ROLES` (matched by `Role.key`) hold exactly the active codes of their audience (ADR-0004).
+
+```mermaid
+flowchart LR
+  cat[PERMISSIONS catalogue] --> plan[planPermissionSync]
+  rows[(Permission / RolePermission)] --> plan
+  plan -->|SyncPlan| apply[syncPermissionsInTx<br/>advisory lock 7301]
+  apply --> rows
+  apply -->|SyncReport| out[JSON line on stdout]
+  migrate[migrate one-shot] -.-> apply
+  predev[predev / db:setup] -.-> apply
+  seed[seedDatabase] -.-> apply
+```
+
 ## Check-in and queue state machines — phase 4/5
 
 ## Observability — phase 1 (logs, Sentry, audit)

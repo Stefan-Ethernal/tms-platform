@@ -6,6 +6,9 @@
   "description": "Prisma schema, migrations and database access for the TMS platform",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
+  "bin": {
+    "tms-sync-permissions": "dist/cli/sync-permissions.js"
+  },
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
@@ -37,6 +40,7 @@
     "db:migrate:deploy": "prisma migrate deploy",
     "db:migrate:status": "prisma migrate status",
     "db:drift": "prisma migrate status && prisma migrate diff --from-config-datasource --to-schema prisma/schema.prisma --exit-code",
+    "db:sync": "node dist/cli/sync-permissions.js",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "NODE_OPTIONS='--experimental-vm-modules --no-warnings=ExperimentalWarning' jest"
@@ -56,6 +60,7 @@
     "@types/node": "catalog:",
     "@types/pg": "catalog:",
     "eslint": "catalog:",
+    "fast-check": "catalog:",
     "jest": "catalog:",
     "testcontainers": "catalog:",
     "ts-jest": "catalog:",

@@ -20,3 +20,5 @@ export function createPrismaClient({
     adapter: new PrismaPg({ connectionString: url, connectionTimeoutMillis: connectTimeoutMs }),
   });
 }
+
+export * from './sync';
