@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1.7
-FROM node:24-bookworm-slim AS build
+FROM node:25-bookworm-slim AS build
 WORKDIR /repo
 # pnpm version from package.json#packageManager, the single place it is pinned.
 COPY package.json ./
