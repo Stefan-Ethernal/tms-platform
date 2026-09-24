@@ -77,15 +77,18 @@ const AUTH_SCHEME = /\b(bearer|basic|digest)\s+(\[[A-Za-z]+\]|[^\s,;"'\\)}\]]+)/
 const URL_CREDENTIALS = /(\/\/)([^\s/@:?#]+):([^\s/@?#]*)@/g;
 // Values of `key=value`, first match wins: a bracketed marker; a quoted value escaped inside a
 // JSON string (`\"…\"`, whole escape pairs only, the closing `\"` optional so an unterminated
-// value is still taken up to the end of the JSON string); a plain `"…"` or `'…'` value, followed
-// by a delimiter so that `"token=","b"` in JSON is never read as a quoted value; a bare value.
+// value is still taken up to the end of the JSON string); a plain `"…"` value; a plain `'…'`
+// value; a bare value. A plain `"` after `key=` in a JSON line is always the closing quote of a
+// string, followed (after optional whitespace) by `,`, `:`, `]` or `}`: the negative lookahead
+// stops a plain quoted value from starting there and spanning into the next string. A `'…'` value
+// cannot span strings because it never contains `"`.
 const KEY_VALUE = new RegExp(
   String.raw`(^|[\s?&;,("'{[])([A-Za-z_][A-Za-z0-9_.\-[\]]{0,63})\s*=\s*(` +
     [
       String.raw`\[[A-Za-z]+\]`,
-      String.raw`\\"(?:[^"\\]|\\[^"])*(?:\\")?`,
-      String.raw`"(?:[^"\\]|\\.)*"(?=$|[\s&;,)}\]#])`,
-      String.raw`'[^'"\\]*'(?=$|[\s&;,)}\]#])`,
+      String.raw`\\"((?:[^"\\]|\\[^"])*)(\\")?`,
+      String.raw`"(?!\s*[,:\]}])((?:[^"\\]|\\.)*)"`,
+      String.raw`'([^'"\\]*)'`,
       String.raw`[^\s&;,)"'}\]#\\]+`,
     ].join('|') +
     ')',
@@ -106,9 +109,33 @@ export function scrubUrl(url: string): string {
   return scrubKeyValuePairs(url.replace(URL_CREDENTIALS, `$1${REDACTED}@`));
 }
 
+/**
+ * A sensitive key loses its whole value. A non-sensitive key keeps its value, but a quoted value is
+ * scrubbed inside (`reason="bad pin=1234"`), so a quote never shelters a pair. Groups 4–7 are the
+ * inner text of the escaped (plus its closing `\"`), double-quoted and single-quoted alternatives.
+ */
 function scrubKeyValuePairs(text: string): string {
-  return text.replace(KEY_VALUE, (match: string, lead: string, key: string) =>
-    isSensitiveKey(key) ? `${lead}${key}=${REDACTED}` : match,
+  return text.replace(
+    KEY_VALUE,
+    (
+      match: string,
+      lead: string,
+      key: string,
+      value: string,
+      escaped: string | undefined,
+      escapedClose: string | undefined,
+      double: string | undefined,
+      single: string | undefined,
+    ) => {
+      if (isSensitiveKey(key)) return `${lead}${key}=${REDACTED}`;
+      const inner = escaped ?? double ?? single;
+      if (inner === undefined || !inner.includes('=')) return match;
+      const prefix = match.slice(0, match.length - value.length);
+      if (escaped !== undefined)
+        return `${prefix}\\"${scrubKeyValuePairs(escaped)}${escapedClose ?? ''}`;
+      const quote = double !== undefined ? '"' : "'";
+      return `${prefix}${quote}${scrubKeyValuePairs(inner)}${quote}`;
+    },
   );
 }
 

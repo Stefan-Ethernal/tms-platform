@@ -119,6 +119,10 @@ describe('scrubString', () => {
     ['login failed password="hunter2" user=ana', 'login failed password=[REDACTED] user=ana'],
     ["login failed password='hunter2' user=ana", 'login failed password=[REDACTED] user=ana'],
     ['{"a":"token=","b":"x"}', '{"a":"token=","b":"x"}'],
+    ['reason="bad pin=1234"', 'reason="bad pin=[REDACTED]"'],
+    ['note="x password=hunter2" y', 'note="x password=[REDACTED]" y'],
+    ["msg='a token=abc123' z", "msg='a token=[REDACTED]' z"],
+    ['{"a":"q=\\"x pin=1\\""}', '{"a":"q=\\"x pin=[REDACTED]\\""}'],
     ['GET /x?token=[Filtered]&lang=en', 'GET /x?token=[REDACTED]&lang=en'],
     ['nothing to see here', 'nothing to see here'],
     ['', ''],
@@ -140,10 +144,91 @@ describe('scrubString', () => {
     expect(JSON.parse(line)).toEqual({ msg: scrubString(msg), level: 30 });
   });
 
+  // A `"` after `key=` inside a JSON line is the closing quote of a string, so a quoted value must
+  // never be read from there into the next string.
+  it.each(['{"x pin=":" y"}', '{"a":"pin="," b":"c"}', '{"a":"token=","#b":1}', '["pin="," x"]'])(
+    'never lets a quoted value span two JSON strings: %s',
+    (line) => {
+      const scrubbed = scrubString(line);
+      expect(Object.keys(JSON.parse(scrubbed) as object)).toEqual(
+        Object.keys(JSON.parse(line) as object),
+      );
+    },
+  );
+
   it('is idempotent', () => {
     const once = scrubString('Bearer x token=y https://u:p@h/?pin=1 {"secret":"z"}');
     expect(scrubString(once)).toBe(once);
     expect(once).not.toMatch(/x|=y|u:p|pin=1|"z"/);
+  });
+});
+
+describe('scrubString property', () => {
+  interface Piece {
+    readonly text: string;
+    readonly secrets: readonly string[];
+  }
+  const SENSITIVE_KEYS = ['password', 'pin', 'token', 'cardSerial', 'totp', 'secret'];
+  const SAFE_KEYS = ['note', 'reason', 'msg', 'q', 'shipping'];
+  // No letter of `[REDACTED]`, so a generated secret is never a substring of the marker.
+  const secret = fc.string({
+    unit: fc.constantFrom(...'BFGHJKLMNPQSUVWXYZ'),
+    minLength: 6,
+    maxLength: 12,
+  });
+  const filler = fc
+    .string({ unit: fc.constantFrom(...'abcxyz019 ",#&;)}]\\'), minLength: 1, maxLength: 8 })
+    .map((text): Piece => ({ text, secrets: [] }));
+  const join = (pieces: readonly Piece[]): Piece => ({
+    text: pieces.map((p) => p.text).join(' '),
+    secrets: pieces.flatMap((p) => p.secrets),
+  });
+  const pair = (quotes: readonly string[]) =>
+    fc
+      .tuple(fc.constantFrom(...SENSITIVE_KEYS), fc.constantFrom(...quotes), secret)
+      .map(([key, q, value]): Piece => ({ text: `${key}=${q}${value}${q}`, secrets: [value] }));
+  // A quoted value under a non-sensitive key; its pairs use another quote style, because a
+  // same-style quote inside it would end it (ambiguous even for a human reader).
+  const nested = fc.constantFrom('"', "'").chain((q) =>
+    fc
+      .tuple(
+        fc.constantFrom(...SAFE_KEYS),
+        fc.array(fc.oneof(filler, pair(['', q === '"' ? "'" : '"'])), {
+          minLength: 1,
+          maxLength: 3,
+        }),
+      )
+      .map(([key, inner]): Piece => {
+        const body = join(inner);
+        return { text: `${key}=${q}${body.text}${q}`, secrets: body.secrets };
+      }),
+  );
+  const message = fc
+    .array(fc.oneof(filler, pair(['', '"', "'"]), nested), { minLength: 1, maxLength: 6 })
+    .map(join);
+  const record = fc.tuple(
+    fc.array(fc.tuple(message, fc.oneof(message, fc.integer())), { minLength: 1, maxLength: 3 }),
+    fc.array(message, { maxLength: 3 }),
+  );
+
+  it('property: a JSON log line stays valid, scrubbing is idempotent and no secret survives', () => {
+    fc.assert(
+      fc.property(record, ([fields, list]) => {
+        const object: Record<string, unknown> = {};
+        const secrets: string[] = [];
+        for (const [key, value] of fields) {
+          object[key.text] = typeof value === 'number' ? value : value.text;
+          secrets.push(...key.secrets, ...(typeof value === 'number' ? [] : value.secrets));
+        }
+        object['list'] = list.map((m) => m.text);
+        secrets.push(...list.flatMap((m) => m.secrets));
+        const scrubbed = scrubString(JSON.stringify(object));
+        expect(() => JSON.parse(scrubbed) as unknown).not.toThrow();
+        expect(scrubString(scrubbed)).toBe(scrubbed);
+        for (const value of secrets) expect(scrubbed).not.toContain(value);
+      }),
+      { numRuns: 500 },
+    );
   });
 });
 
