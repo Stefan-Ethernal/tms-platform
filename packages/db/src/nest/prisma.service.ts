@@ -1,5 +1,5 @@
 import type { OnModuleDestroy } from '@nestjs/common';
-import { PrismaPg } from '@prisma/adapter-pg';
+import { createPgAdapter } from '../adapter';
 import { PrismaClient } from '../generated/prisma/client';
 import type { CreatePrismaClientOptions } from '../index';
 
@@ -9,9 +9,10 @@ import type { CreatePrismaClientOptions } from '../index';
  */
 export class PrismaService extends PrismaClient implements OnModuleDestroy {
   constructor({ url, connectTimeoutMs = 5000 }: CreatePrismaClientOptions) {
-    super({
-      adapter: new PrismaPg({ connectionString: url, connectionTimeoutMillis: connectTimeoutMs }),
-    });
+    // `extends PrismaClient` must pass a built adapter into `super()` directly, so this cannot
+    // delegate to `createPrismaClient`; `createPgAdapter` keeps the adapter construction itself
+    // shared with it instead.
+    super({ adapter: createPgAdapter(url, connectTimeoutMs) });
   }
 
   async onModuleDestroy(): Promise<void> {

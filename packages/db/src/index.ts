@@ -1,4 +1,4 @@
-import { PrismaPg } from '@prisma/adapter-pg';
+import { createPgAdapter } from './adapter';
 import { PrismaClient } from './generated/prisma/client';
 
 // PrismaClient (class and type), the Prisma namespace, $Enums, every enum and every model type.
@@ -11,14 +11,16 @@ export interface CreatePrismaClientOptions {
   connectTimeoutMs?: number;
 }
 
-/** The generated client over the pg driver adapter — the only way this package hands out a PrismaClient. */
+/**
+ * The generated client over the pg driver adapter, for callers outside Nest (the CLIs, the migrate
+ * image, tests). `PrismaService` (`@tms/db/nest`) builds the same client through the same
+ * `createPgAdapter` helper for Nest applications; both are the only two places that construct one.
+ */
 export function createPrismaClient({
   url,
   connectTimeoutMs = 5000,
 }: CreatePrismaClientOptions): PrismaClient {
-  return new PrismaClient({
-    adapter: new PrismaPg({ connectionString: url, connectionTimeoutMillis: connectTimeoutMs }),
-  });
+  return new PrismaClient({ adapter: createPgAdapter(url, connectTimeoutMs) });
 }
 
 export * from './sync';
