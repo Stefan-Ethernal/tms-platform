@@ -24,11 +24,12 @@ describe('auth DTO schemas', () => {
   });
 
   it('accepts exactly one second factor', () => {
-    expect(MfaRequestSchema.safeParse({ code: '123456' }).success).toBe(true);
+    expect(MfaRequestSchema.safeParse({ totpCode: '123456' }).success).toBe(true);
     expect(MfaRequestSchema.safeParse({ recoveryCode: 'ABCD-EFGH-JKMN-PQRS' }).success).toBe(true);
-    expect(MfaRequestSchema.safeParse({ code: '12345' }).success).toBe(false);
+    expect(MfaRequestSchema.safeParse({ totpCode: '12345' }).success).toBe(false);
     expect(
-      MfaRequestSchema.safeParse({ code: '123456', recoveryCode: 'ABCD-EFGH-JKMN-PQRS' }).success,
+      MfaRequestSchema.safeParse({ totpCode: '123456', recoveryCode: 'ABCD-EFGH-JKMN-PQRS' })
+        .success,
     ).toBe(false);
   });
 

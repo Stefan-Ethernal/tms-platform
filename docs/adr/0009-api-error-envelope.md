@@ -11,8 +11,8 @@ a 409 carrying the conflicting field on a unique violation. The admin and driver
 error to an i18n key, so the shape the client can switch on has to be small, closed and shared with
 the server, not re-derived per route. Nest's default `HttpException` body is
 `{ statusCode, message: string | string[], error }`, which gives the client only a status code and a
-free-text (and sometimes localized-by-Nest) message to pattern-match against — not stable enough to
-drive an i18n lookup, and it has no place for a field list or a retry hint.
+free-text message to pattern-match against — not stable enough to drive an i18n lookup, and it has
+no place for a field list or a retry hint.
 
 ## Decision
 
@@ -23,7 +23,7 @@ one of `API_ERROR_CODES`, a fixed map from a machine-readable string to its nomi
 errors, `retryAfterSeconds` only where the client should back off (lockout, throttling).
 
 Services never construct the envelope directly: they throw `DomainError` (a code plus optional
-`fields`/`retryAfterSeconds`), and a single global exception filter (`@tms/nest-bootstrap`, Task 09)
+`fields`/`retryAfterSeconds`), and a single global exception filter in `@tms/nest-bootstrap`
 maps every thrown value to the envelope in one place:
 
 - a `DomainError` maps through its `code` to `API_ERROR_CODES[code]` and carries its `details`;
@@ -37,9 +37,8 @@ maps every thrown value to the envelope in one place:
   after being reported to Sentry (ADR 0008) and logged with the request id.
 
 `DomainError` is recognised by `isDomainError`, a brand check (`isDomainError === true` plus a known
-`code`), never `instanceof` — the same technique the audit and scrub helpers use elsewhere in this
-package, so a duplicated copy of `@tms/contracts` in the dependency graph cannot silently stop the
-filter from recognising a domain error.
+`code`), never `instanceof`, so a duplicated copy of `@tms/contracts` in the dependency graph cannot
+silently stop the filter from recognising a domain error.
 
 ## Alternatives considered
 
@@ -57,4 +56,5 @@ filter from recognising a domain error.
 - Adding a new error code is a `@tms/contracts` change (one entry in `API_ERROR_CODES`, reviewed like
   any other shared vocabulary), not a per-route decision.
 - Every service that wants a specific status throws `DomainError`, never a raw Nest `HttpException`,
-  keeping the mapping (and its test coverage, the error envelope matrix of Task 09) in one place.
+  keeping the mapping (and its test coverage, the error envelope matrix of the global exception
+  filter in `@tms/nest-bootstrap`) in one place.

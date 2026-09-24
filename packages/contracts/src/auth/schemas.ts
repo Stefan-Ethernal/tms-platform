@@ -6,12 +6,14 @@ const Password = z.string().min(1).max(128);
 const TotpCode = z.string().regex(/^\d{6}$/);
 /** 32 random bytes, base64url without padding. */
 const RawToken = z.string().regex(/^[A-Za-z0-9_-]{43}$/);
-const RecoveryCode = z.string().min(16).max(32);
 const CROCKFORD_GROUP = '[0-9A-HJKMNP-TV-Z]{4}';
+const RecoveryCode = z.string().regex(new RegExp(`^${CROCKFORD_GROUP}(-${CROCKFORD_GROUP}){3}$`));
 
 export const LoginRequestSchema = z.strictObject({ email: EmailSchema, password: Password });
+/** The live TOTP code travels under `totpCode`, not the bare `code`, so `totp` (a whole-word
+ * sensitive token) scrubs it automatically wherever the request body is logged or captured. */
 export const MfaRequestSchema = z.union([
-  z.strictObject({ code: TotpCode }),
+  z.strictObject({ totpCode: TotpCode }),
   z.strictObject({ recoveryCode: RecoveryCode }),
 ]);
 export const AcceptInviteRequestSchema = z.strictObject({ token: RawToken });
@@ -20,7 +22,7 @@ export const TotpEnrollmentResponseSchema = z.strictObject({
   otpauthUri: z.string().startsWith('otpauth://totp/'),
   secret: z.string().regex(/^[A-Z2-7]+=*$/),
 });
-export const TotpConfirmRequestSchema = z.strictObject({ code: TotpCode });
+export const TotpConfirmRequestSchema = z.strictObject({ totpCode: TotpCode });
 export const RecoveryCodesResponseSchema = z.strictObject({
   recoveryCodes: z
     .array(z.string().regex(new RegExp(`^${CROCKFORD_GROUP}(-${CROCKFORD_GROUP}){3}$`)))
@@ -43,7 +45,7 @@ export const ChangePasswordRequestSchema = z.strictObject({
   currentPassword: Password,
   newPassword: Password,
 });
-export const StepUpRequestSchema = z.strictObject({ code: TotpCode });
+export const StepUpRequestSchema = z.strictObject({ totpCode: TotpCode });
 export const AcceptMfaResetRequestSchema = z.strictObject({ token: RawToken, password: Password });
 export const ChangeRoleRequestSchema = z.strictObject({ roleId: z.uuid() });
 export const UserIdParamSchema = z.strictObject({ id: z.uuid() });
