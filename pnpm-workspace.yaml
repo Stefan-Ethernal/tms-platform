@@ -10,7 +10,10 @@ engineStrict: true
 
 catalog:
   # language and tooling
-  typescript: ~6.0.3
+  typescript: ~7.0.2
+  # Classic TS 6 JS Compiler API, for ESLint's type-aware linting (typescript-eslint) via
+  # .pnpmfile.cjs — see that file for why. Keep this value in sync with the range there.
+  '@typescript/typescript6': ~6.0.2
   '@types/node': ^26.6.2
   eslint: ^10.11.0
   '@eslint/js': ^10.0.1
@@ -58,6 +61,16 @@ catalog:
   '@playwright/test': ^1.63.0
   # data
   prisma: ^7.10.0
+
+# Nest CLI's build/schematics engine resolves "typescript" from the target app's own
+# devDependency (not from its own package), and its programmatic compiler API doesn't
+# return until TypeScript 7.1 (nest build fails: "install TypeScript 6 ... until then").
+# Packages that need the JS compiler API (Nest CLI, ts-jest, direct `ts.*` calls: apps/api-*,
+# packages/config and every Nest library that follows) pin the real classic package here, so
+# `nest build`, `tsc`/`tsc -b` and ts-jest agree. Every other package keeps typescript@~7.0.2.
+catalogs:
+  nest-ts6:
+    typescript: ~6.0.3
 
 allowBuilds:
   prisma: true

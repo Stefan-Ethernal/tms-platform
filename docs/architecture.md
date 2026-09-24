@@ -24,7 +24,7 @@ flowchart TB
   subgraph origin_kiosk[Origin :8081 — Caddy]
     web_driver["web-driver SPA (+ /display, phase 7)"] --- api_driver[api-driver NestJS :3002]
   end
-  api_admin --> db[(PostgreSQL 16)]
+  api_admin --> db[(PostgreSQL 18)]
   api_driver --> db
   migrate["migrate one-shot: prisma migrate deploy (+ permission sync, phase 1)"] --> db
   api_admin -. phase 2 .-> mailpit[(Mailpit / SMTP)]

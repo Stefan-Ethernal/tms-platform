@@ -25,7 +25,7 @@
   },
   "devDependencies": {
     "eslint": "catalog:",
-    "typescript": "catalog:",
+    "typescript": "catalog:nest-ts6",
     "vitest": "catalog:"
   },
   "peerDependencies": {
