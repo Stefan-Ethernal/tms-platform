@@ -5,3 +5,7 @@ export * from './password-hasher';
 export * from './password-policy';
 export * from './totp';
 export * from './recovery-codes';
+export * from './policies/lockout';
+export * from './policies/session-expiry';
+export * from './policies/step-up';
+export * from './policies/mfa-attempts';
