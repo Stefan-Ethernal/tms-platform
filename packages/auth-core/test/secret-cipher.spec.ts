@@ -1,5 +1,12 @@
+import { inspect } from 'node:util';
 import fc from 'fast-check';
-import { AesGcmSecretCipher, envelopeKeyId, parseKeyring, SecretCipherError } from '../src';
+import {
+  AesGcmSecretCipher,
+  envelopeKeyId,
+  parseKeyring,
+  type RandomSource,
+  SecretCipherError,
+} from '../src';
 
 const k1 = Buffer.alloc(32, 1);
 const k2 = Buffer.alloc(32, 2);
@@ -55,6 +62,95 @@ describe('AesGcmSecretCipher', () => {
       () => new AesGcmSecretCipher({ keys: { k1: Buffer.alloc(16) }, activeKeyId: 'k1' }),
     ).toThrow(SecretCipherError);
   });
+
+  // Security review (task 03 fix round), finding 1 (HIGH): the envelope's own header (version,
+  // key id) was not part of the authenticated data, so an envelope could in principle be
+  // relabelled to another key id without failing authentication, as long as that key id's bytes
+  // happened to match. Binding `v1.<keyId>.` into the AAD closes this even when two ids share key
+  // material (e.g. during a rotation window).
+  it('binds the key id into the AAD: relabeling an envelope fails even with identical key bytes', () => {
+    const sameBytes = new AesGcmSecretCipher({ keys: { k1, k9: k1 }, activeKeyId: 'k1' });
+    const envelope = sameBytes.encrypt('secret', 'aad');
+    const relabeled = envelope.replace(/^v1\.k1\./, 'v1.k9.');
+    expect(envelopeKeyId(relabeled)).toBe('k9');
+    expect(() => sameBytes.decrypt(relabeled, 'aad')).toThrow(SecretCipherError);
+  });
+
+  // Finding 5 (MEDIUM): an empty AAD binds the ciphertext to no owner at all.
+  it('rejects an empty aad on encrypt and decrypt', () => {
+    expect(() => cipher.encrypt('secret', '')).toThrow(SecretCipherError);
+    const envelope = cipher.encrypt('secret', 'aad');
+    expect(() => cipher.decrypt(envelope, '')).toThrow(SecretCipherError);
+  });
+
+  // Finding 6 (MEDIUM): the tamper-case tests above only flip one character (same length), so a
+  // truncated tag or IV, a bad version and a wrong part count were not covered.
+  it.each([
+    ['wrong version', (e: string) => 'v2' + e.slice(2)],
+    ['too few parts', (e: string) => e.split('.').slice(0, 4).join('.')],
+    ['too many parts', (e: string) => e + '.extra'],
+    [
+      'a truncated tag',
+      (e: string) =>
+        e.split('.').slice(0, 4).join('.') + '.' + Buffer.alloc(4).toString('base64url'),
+    ],
+    [
+      'a truncated iv',
+      (e: string) => {
+        const parts = e.split('.');
+        parts[2] = Buffer.alloc(4).toString('base64url');
+        return parts.join('.');
+      },
+    ],
+  ])('rejects a malformed envelope (%s)', (_label, mutate) => {
+    const envelope = cipher.encrypt('secret', 'aad');
+    expect(() => cipher.decrypt(mutate(envelope), 'aad')).toThrow(SecretCipherError);
+  });
+
+  // Finding 4 (MEDIUM): an invalid active key id, or an invalid key id smuggled into an envelope,
+  // must not be echoed back in the thrown message (it could carry key material, e.g. from a
+  // misconfigured env where SECRETS_ENC_ACTIVE_KEY_ID and SECRETS_ENC_KEYS were swapped).
+  it('never echoes an invalid active key id or an invalid envelope key id in its error', () => {
+    const suspicious = Buffer.alloc(32, 255).toString('base64');
+    expect(() => new AesGcmSecretCipher({ keys: { k1 }, activeKeyId: suspicious })).toThrow(
+      SecretCipherError,
+    );
+    try {
+      new AesGcmSecretCipher({ keys: { k1 }, activeKeyId: suspicious });
+      throw new Error('expected a failure');
+    } catch (e) {
+      expect((e as Error).message).not.toContain(suspicious);
+    }
+
+    const envelope = cipher.encrypt('secret', 'aad');
+    const parts = envelope.split('.');
+    parts[1] = suspicious;
+    try {
+      cipher.decrypt(parts.join('.'), 'aad');
+      throw new Error('expected a failure');
+    } catch (e) {
+      expect(e).toBeInstanceOf(SecretCipherError);
+      expect((e as Error).message).not.toContain(suspicious);
+    }
+  });
+
+  // Finding 3 (MEDIUM): key material must not be visible via console.log/util.inspect or
+  // JSON.stringify of the cipher instance (a `#private` field, plus explicit redaction).
+  it('redacts key material from util.inspect and JSON.stringify', () => {
+    const dumped = inspect(cipher);
+    const json = JSON.stringify(cipher);
+    expect(dumped).not.toContain(k1.toString('base64'));
+    expect(dumped).not.toContain(k1.toString('hex'));
+    expect(json).not.toContain(k1.toString('base64'));
+  });
+
+  // Finding 2 (MEDIUM): a `RandomSource` that returns too few bytes must not silently produce a
+  // short IV (Node's GCM implementation accepts any IV length).
+  it('refuses an injected random source that returns the wrong number of IV bytes', () => {
+    const short: RandomSource = { bytes: () => Buffer.alloc(4) };
+    const broken = new AesGcmSecretCipher({ keys: { k1 }, activeKeyId: 'k1', random: short });
+    expect(() => broken.encrypt('secret', 'aad')).toThrow(SecretCipherError);
+  });
 });
 
 describe('parseKeyring', () => {
@@ -76,5 +172,16 @@ describe('parseKeyring', () => {
       expect(e).toBeInstanceOf(SecretCipherError);
       expect((e as Error).message).not.toContain(b64(k1));
     }
+  });
+
+  // Finding 8 (LOW): a plain `{}` accumulator lets a key id of `__proto__` set the object's
+  // prototype instead of an own property (and a subsequent duplicate-id check would then read
+  // `Object.prototype`, not the entry). `Object.create(null)` plus `Object.hasOwn` treats
+  // `__proto__` as an ordinary id.
+  it('treats "__proto__" as an ordinary key id, not a prototype access', () => {
+    const parsed = parseKeyring(`__proto__:${b64(k1)}`);
+    expect(Object.hasOwn(parsed, '__proto__')).toBe(true);
+    expect(Object.getPrototypeOf(parsed)).toBeNull();
+    expect(parsed['__proto__']).toEqual(k1);
   });
 });

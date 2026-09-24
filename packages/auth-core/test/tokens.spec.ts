@@ -17,6 +17,13 @@ describe('tokens', () => {
     expect(() => generateToken(cryptoRandomSource, 8)).toThrow(RangeError);
   });
 
+  // Security review (task 03 fix round), finding 2 (MEDIUM): a `RandomSource` that silently
+  // returns fewer bytes than asked must not produce a short, weaker token.
+  it('refuses an injected random source that returns the wrong number of bytes', () => {
+    const short: RandomSource = { bytes: () => Buffer.alloc(4) };
+    expect(() => generateToken(short, 32)).toThrow(RangeError);
+  });
+
   it('hashes with sha256 hex', () => {
     expect(hashToken('abc')).toBe(
       'ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad',
@@ -27,5 +34,12 @@ describe('tokens', () => {
     fc.assert(
       fc.property(fc.string(), fc.string(), (a, b) => expect(safeEqual(a, b)).toBe(a === b)),
     );
+  });
+
+  // Finding 7 (LOW): hashing as UTF-8 would replace an unpaired surrogate with U+FFFD, so two
+  // distinct lone surrogates could compare equal; hashing as UTF-16 code units is lossless.
+  it('does not collapse distinct lone surrogates to equal', () => {
+    expect(safeEqual('\uD800', '\uDBFF')).toBe(false);
+    expect(safeEqual('\uD800', '\uD800')).toBe(true);
   });
 });
