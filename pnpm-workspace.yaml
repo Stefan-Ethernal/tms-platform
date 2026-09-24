@@ -49,6 +49,11 @@ catalog:
   supertest: ^7.3.0
   '@types/supertest': ^7.2.1
   '@types/express': ^5.0.6
+  # logging
+  nestjs-pino: ^5.2.0
+  pino: ^10.3.1
+  pino-http: ^11.0.0
+  pino-roll: ^4.0.0
   # react
   react: ^19.3.0
   react-dom: ^19.3.0

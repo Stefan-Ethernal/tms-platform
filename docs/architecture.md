@@ -349,6 +349,22 @@ flowchart LR
 
 ## Observability — phase 1 (logs, Sentry, audit)
 
+**Logs.** Both APIs log through `@tms/logger` (nestjs-pino 5 over pino 10): one JSON object per line
+on stdout and, unless `LOG_FILE_ENABLED=false` (D14), the same lines in
+`LOG_DIR/<app>/<app>.<yyyy-MM-dd>.<n>.log`, written by `pino-roll` in a worker thread, rolled daily and
+kept for `LOG_RETENTION_DAYS` rotated files. Per-application directories (deviation 7) keep numbering
+and retention apart: pino-roll numbers from every file in its directory. Redaction applies the rules of
+`@tms/contracts/security` in four places: the `req`/`res`/`err` serializers (headers through
+`scrubDeep`, the URL through `scrubUrl`, response headers dropped, bodies never logged), the
+`log`/`bindings` formatters (every other field, child loggers and `PinoLogger.assign`),
+`hooks.logMethod` (message and interpolation arguments) and `hooks.streamWrite` (`scrubString` over
+the finished line); pino `redact` paths for the four credential headers stay as a second guard.
+Request ids: a caller's `X-Request-Id` is kept when it matches `^[A-Za-z0-9._-]{1,64}$`, otherwise a
+UUID is minted; the id is echoed on the response, logged as `req.id` on `request completed` and as
+`reqId` on every line logged while the request is handled. `GET /api/health` is never auto-logged.
+`LoggerShutdown` ends the file transport on `app.close()` (SIGTERM via `enableShutdownHooks()`);
+nestjs-pino alone would drop buffered lines.
+
 ## Testing strategy
 
 See spec section 13. Phase 0 provides: Jest (unit + supertest e2e-spec) per API, Vitest per SPA
