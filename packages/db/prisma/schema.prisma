@@ -66,6 +66,7 @@ model User {
   locale           String     @default("en")
   lastLoginAt      DateTime?  @db.Timestamptz(3)
   failedLoginCount Int        @default(0)
+  lockoutLevel     Int        @default(0) // consecutive lockouts since the last successful login or admin unlock (phase 2)
   lockedUntil      DateTime?  @db.Timestamptz(3)
   createdById      String?    @db.Uuid
   createdBy        User?      @relation("UserCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
@@ -151,7 +152,7 @@ model ActionToken {
   createdBy   User?           @relation("ActionTokenCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
   createdAt   DateTime        @default(now()) @db.Timestamptz(3)
 
-  @@index([userId])
+  @@index([userId, type]) // replaces phase 1's @@index([userId])
 }
 
 model RecoveryCode {
