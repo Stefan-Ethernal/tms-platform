@@ -1,9 +1,181 @@
 generator client {
-  provider     = "prisma-client"
-  output       = "../generated/client"
-  moduleFormat = "esm"
+  provider            = "prisma-client"
+  output              = "../src/generated/prisma"
+  moduleFormat        = "cjs"
+  importFileExtension = ""
 }
 
 datasource db {
   provider = "postgresql"
+}
+
+// Enums mirror DB_MIRRORED_ENUMS in @tms/contracts; test/enums-parity.spec.ts asserts set equality.
+
+enum UserKind {
+  STAFF
+  DRIVER
+}
+
+enum UserStatus {
+  INVITED
+  ACTIVE
+  BLOCKED
+  DEACTIVATED
+}
+
+enum SessionScope {
+  PRE_MFA
+  ENROLLMENT
+  FULL
+}
+
+enum ActionTokenType {
+  INVITE
+  PASSWORD_RESET
+  MFA_RESET
+}
+
+enum AuditApp {
+  ADMIN
+  DRIVER
+  SYSTEM
+}
+
+enum AuditOutcome {
+  SUCCESS
+  FAILURE
+}
+
+model User {
+  id               String     @id @default(uuid(7)) @db.Uuid
+  kind             UserKind
+  username         String     @unique
+  firstName        String
+  lastName         String
+  dateOfBirth      DateTime?  @db.Date
+  phone            String?
+  email            String?    @unique
+  status           UserStatus @default(INVITED)
+  passwordHash     String?
+  totpSecretEnc    String?
+  totpKeyId        String?
+  totpEnabledAt    DateTime?  @db.Timestamptz(3)
+  totpLastUsedStep Int?
+  roleId           String     @db.Uuid
+  role             Role       @relation(fields: [roleId], references: [id], onDelete: Restrict)
+  locale           String     @default("en")
+  lastLoginAt      DateTime?  @db.Timestamptz(3)
+  failedLoginCount Int        @default(0)
+  lockedUntil      DateTime?  @db.Timestamptz(3)
+  createdById      String?    @db.Uuid
+  createdBy        User?      @relation("UserCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  createdAt        DateTime   @default(now()) @db.Timestamptz(3)
+  updatedAt        DateTime   @updatedAt @db.Timestamptz(3)
+
+  createdUsers       User[]         @relation("UserCreatedBy")
+  sessions           Session[]
+  actionTokens       ActionToken[]  @relation("ActionTokenUser")
+  issuedActionTokens ActionToken[]  @relation("ActionTokenCreatedBy")
+  recoveryCodes      RecoveryCode[]
+  auditEntries       AuditLog[]
+}
+
+model Role {
+  id          String   @id @default(uuid(7)) @db.Uuid
+  key         String?  @unique
+  name        String   @unique
+  description String
+  isSystem    Boolean  @default(false)
+  appliesTo   UserKind
+  createdAt   DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt   DateTime @updatedAt @db.Timestamptz(3)
+
+  users       User[]
+  permissions RolePermission[]
+}
+
+model Permission {
+  code         String   @id
+  group        String
+  name         String
+  description  String
+  isDeprecated Boolean  @default(false)
+  syncedAt     DateTime @db.Timestamptz(3)
+  createdAt    DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt    DateTime @updatedAt @db.Timestamptz(3)
+
+  roles RolePermission[]
+}
+
+model RolePermission {
+  roleId         String     @db.Uuid
+  permissionCode String
+  role           Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission     Permission @relation(fields: [permissionCode], references: [code], onDelete: Restrict)
+
+  @@id([roleId, permissionCode])
+}
+
+model Session {
+  id                   String       @id @default(uuid(7)) @db.Uuid
+  userId               String       @db.Uuid
+  user                 User         @relation(fields: [userId], references: [id], onDelete: Restrict)
+  tokenHash            String       @unique
+  scope                SessionScope
+  mfaVerifiedAt        DateTime?    @db.Timestamptz(3)
+  totpPendingSecretEnc String?
+  mfaAttempts          Int          @default(0)
+  expiresAt            DateTime     @db.Timestamptz(3)
+  lastSeenAt           DateTime     @db.Timestamptz(3)
+  ip                   String?
+  userAgent            String?
+  createdAt            DateTime     @default(now()) @db.Timestamptz(3)
+
+  @@index([userId])
+}
+
+model ActionToken {
+  id          String          @id @default(uuid(7)) @db.Uuid
+  userId      String          @db.Uuid
+  user        User            @relation("ActionTokenUser", fields: [userId], references: [id], onDelete: Restrict)
+  type        ActionTokenType
+  tokenHash   String          @unique
+  expiresAt   DateTime        @db.Timestamptz(3)
+  usedAt      DateTime?       @db.Timestamptz(3)
+  createdById String?         @db.Uuid
+  createdBy   User?           @relation("ActionTokenCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  createdAt   DateTime        @default(now()) @db.Timestamptz(3)
+
+  @@index([userId])
+}
+
+model RecoveryCode {
+  id        String    @id @default(uuid(7)) @db.Uuid
+  userId    String    @db.Uuid
+  user      User      @relation(fields: [userId], references: [id], onDelete: Restrict)
+  codeHash  String
+  usedAt    DateTime? @db.Timestamptz(3)
+  createdAt DateTime  @default(now()) @db.Timestamptz(3)
+
+  @@index([userId])
+}
+
+model AuditLog {
+  id          String       @id @default(uuid(7)) @db.Uuid
+  at          DateTime     @default(now()) @db.Timestamptz(3)
+  app         AuditApp
+  actorUserId String?      @db.Uuid
+  actor       User?        @relation(fields: [actorUserId], references: [id], onDelete: Restrict)
+  action      String
+  targetType  String?
+  targetId    String?
+  outcome     AuditOutcome
+  ip          String?
+  userAgent   String?
+  metadata    Json
+
+  @@index([at])
+  @@index([actorUserId])
+  @@index([action])
+  @@index([targetType, targetId])
 }
