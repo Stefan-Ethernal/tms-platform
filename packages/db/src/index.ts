@@ -22,3 +22,4 @@ export function createPrismaClient({
 }
 
 export * from './sync';
+export * from './seed';
