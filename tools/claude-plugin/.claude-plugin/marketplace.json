@@ -1,0 +1,12 @@
+{
+  "name": "tms",
+  "owner": { "name": "Ethernal" },
+  "metadata": { "description": "Plugins developed inside the TMS platform repository" },
+  "plugins": [
+    {
+      "name": "ethernal-nest-react",
+      "source": "./ethernal-nest-react",
+      "description": "NestJS + React + Prisma workflow: protective hooks, plan critic, verify and PR skills"
+    }
+  ]
+}

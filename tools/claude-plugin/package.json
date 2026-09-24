@@ -1,0 +1,17 @@
+{
+  "name": "@tms/claude-plugin",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Tests and tooling for the ethernal-nest-react Claude Code plugin",
+  "scripts": {
+    "lint": "eslint .",
+    "test": "vitest run",
+    "validate": "\"${CLAUDE_BIN:-claude}\" plugin validate . --strict && \"${CLAUDE_BIN:-claude}\" plugin validate ethernal-nest-react --strict"
+  },
+  "devDependencies": {
+    "@tms/config": "workspace:*",
+    "eslint": "catalog:",
+    "vitest": "catalog:"
+  }
+}
