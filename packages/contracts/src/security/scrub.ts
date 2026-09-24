@@ -29,6 +29,7 @@ export const SENSITIVE_KEY_TOKENS = [
   'setcookie',
   'totp',
   'otp',
+  'otpauth',
   'recoverycode',
   'recoverycodes',
   'secret',

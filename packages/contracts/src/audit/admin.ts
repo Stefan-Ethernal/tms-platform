@@ -25,15 +25,37 @@ export const UserProfileFieldSchema = z.enum([
 ]);
 export type UserProfileField = z.infer<typeof UserProfileFieldSchema>;
 
+/** Refusals of an admin action on a user (Tasks 20–22). */
+export const AdminFailureSchema = z.enum([
+  'LAST_ADMIN',
+  'SELF_ACTION',
+  'STATE_CONFLICT',
+  'ROLE_KIND_MISMATCH',
+]);
+export type AdminFailure = z.infer<typeof AdminFailureSchema>;
+
+/** What an admin action ended. `linksRevoked`, not `tokensRevoked`: `tokens` is a sensitive word. */
+const revoked = { sessionsRevoked: count.optional(), linksRevoked: count.optional() };
+const refusal = { reason: AdminFailureSchema.optional() };
+
 /** Spec sections 7 to 9 and 12, back-office administration; loading orders live in `ops.ts`. */
 export const ADMIN_AUDIT_ACTIONS = {
   'admin.user.created': empty,
   'admin.user.updated': z.strictObject({ changedFields: z.array(UserProfileFieldSchema).max(16) }),
-  'admin.user.blocked': empty,
-  'admin.user.unblocked': empty,
-  'admin.user.deactivated': empty,
-  'admin.user.unlocked': empty,
-  'admin.user.role-changed': z.strictObject({ fromRoleId: id, toRoleId: id }),
+  'admin.user.blocked': z.strictObject({ ...revoked, ...refusal }),
+  'admin.user.unblocked': z.strictObject({
+    status: z.enum(['ACTIVE', 'INVITED']).optional(),
+    ...refusal,
+  }),
+  'admin.user.deactivated': z.strictObject({ ...revoked, ...refusal }),
+  'admin.user.unlocked': z.strictObject({ ...refusal }),
+  'admin.user.role-changed': z.strictObject({
+    fromRoleId: id,
+    toRoleId: id,
+    ...revoked,
+    ...refusal,
+  }),
+  'admin.user.password-reset-sent': z.strictObject({ ...refusal }),
   'admin.role.created': empty,
   'admin.role.updated': z.strictObject({
     permissionsAdded: z.array(code).max(200).optional(),
