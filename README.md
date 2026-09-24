@@ -8,7 +8,9 @@ end of the POC).
 
 ## Prerequisites
 
-- Node 26 (`.nvmrc`), pnpm 12.5.1 (`corepack enable` picks it from `packageManager`)
+- Node 26 (`.nvmrc`) and the pnpm version pinned in `package.json#packageManager`. Node 26 no
+  longer ships corepack, so install it from the repository root, as the Dockerfiles do:
+  `npm install -g "$(node -p "require('./package.json').packageManager")"`
 - Docker with Compose v2 (used for Postgres, Mailpit, migrations and the production-like stack)
 - Claude Code 2.1+ with the Claude in Chrome extension for visual verification (optional). If the
   `claude` binary is not on `PATH` in your shell, set `CLAUDE_BIN=~/.local/bin/claude`.
