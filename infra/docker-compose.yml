@@ -68,9 +68,9 @@ services:
       NODE_ENV: production
       PORT: '3001'
       DATABASE_URL: *database-url
+      SENTRY_DSN: ${SENTRY_DSN:-}
       LOG_DIR: /var/log/tms
       LOG_FILE_ENABLED: 'true'
-      SENTRY_DSN: ${SENTRY_DSN:-}
     # Read-only root filesystem (deviation 10); the writable paths are the logs volume and /tmp.
     read_only: true
     tmpfs:
@@ -107,9 +107,9 @@ services:
       NODE_ENV: production
       PORT: '3002'
       DATABASE_URL: *database-url
+      SENTRY_DSN: ${SENTRY_DSN:-}
       LOG_DIR: /var/log/tms
       LOG_FILE_ENABLED: 'true'
-      SENTRY_DSN: ${SENTRY_DSN:-}
     read_only: true
     tmpfs:
       - /tmp

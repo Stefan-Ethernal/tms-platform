@@ -115,13 +115,16 @@ packageExtensions:
         optional: true
 
 # @sentry/node depends on @sentry/bundler-plugins (source-map upload tooling, unused at runtime
-# here), which pulls supports-color@8, a version nothing else in the workspace needs. Left alone,
-# that second supports-color duplicates every package downstream of it, including @nestjs/common
-# and @nestjs/core, into a second copy nest-bootstrap alone would load — breaking cross-module
-# class identity (nestjs-pino's LoggerModule failed to resolve ApplicationConfig). Pinning it to
-# the version already resolved everywhere else collapses the graph back to one Nest copy.
+# here), whose own supports-color@^8.1.1 differs from the supports-color@7.2.0 the rest of the
+# workspace resolves (jest-worker included, on its own declared ^8.1.1 range — left alone below).
+# That split duplicated every package downstream of @sentry/bundler-plugins's resolution, including
+# @nestjs/common and @nestjs/core, into a second copy nest-bootstrap alone would load — breaking
+# cross-module class identity (nestjs-pino's LoggerModule failed to resolve ApplicationConfig).
+# Pinning supports-color only as resolved through @sentry/bundler-plugins (pnpm's `parent>child`
+# override selector) collapses just that branch back to the version used everywhere else, without
+# touching any other package's own supports-color resolution.
 overrides:
-  supports-color: 7.2.0
+  '@sentry/bundler-plugins>supports-color': 7.2.0
 
 minimumReleaseAgeExclude:
   - '@turbo/darwin-64@2.11.3'
