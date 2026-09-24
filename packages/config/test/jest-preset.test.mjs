@@ -33,7 +33,14 @@ function createWorkspace() {
   );
   write('packages/db/dist/testing/global-setup.js', 'module.exports = async () => {};\n');
   write('packages/db/dist/testing/global-teardown.js', 'module.exports = async () => {};\n');
-  write('apps/api/package.json', JSON.stringify({ name: '@tms/api', private: true }));
+  write(
+    'apps/api/package.json',
+    JSON.stringify({
+      name: '@tms/api',
+      private: true,
+      devDependencies: { '@tms/db': 'workspace:*' },
+    }),
+  );
   write('apps/plain/package.json', JSON.stringify({ name: '@tms/plain', private: true }));
   fs.mkdirSync(path.join(root, 'apps/api/node_modules/@tms'), { recursive: true });
   fs.symlinkSync(

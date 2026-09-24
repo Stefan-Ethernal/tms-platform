@@ -90,3 +90,16 @@ subpaths (`./security`, `./audit`) are the only deep imports the exports map all
 See spec section 13. Phase 0 provides: Jest (unit + supertest e2e-spec) per API, Vitest per SPA
 and tooling package, Playwright smoke against the compose `full` profile, CI jobs `verify`,
 `hygiene`, `db-drift`, `e2e`.
+
+Database tests (phase 1): a Jest project that uses `createJestConfig({ rootDir, database: true })`
+(`@tms/config/jest`) runs the Testcontainers harness from `@tms/db/testing`
+(`packages/db/src/testing`). Its `globalSetup` starts one `postgres:18-alpine` container per run
+(the compose image, kept equal by a test), creates `tms_template`, applies the migrations once with
+the package's own `prisma migrate deploy`, and clones `tms_w1` … `tms_wN` from it with
+`CREATE DATABASE … TEMPLATE` (N = max(2, Jest workers); two workers in CI). A test gets its
+database from `testDatabaseUrl()` (derived from `JEST_WORKER_ID` at run time, because Jest may run
+several files in one worker) and calls `resetTestDatabase()` in `beforeEach` (`TRUNCATE … RESTART
+IDENTITY CASCADE`, `_prisma_migrations` kept). `globalTeardown` stops the container; Ryuk removes
+whatever a killed run leaves behind. Tests never read `DATABASE_URL`, so they cannot reach the
+development database. The fixed cost is about 3.5 s per Jest project (container 2.2 s, migrations
+1 s, 40 ms per clone). Docker is therefore required for `pnpm verify`, the pre-push hook and CI.

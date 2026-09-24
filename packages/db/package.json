@@ -2,9 +2,35 @@
   "name": "@tms/db",
   "version": "0.0.0",
   "private": true,
-  "type": "module",
+  "type": "commonjs",
   "description": "Prisma schema, migrations and database access for the TMS platform",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./testing": {
+      "types": "./dist/testing/index.d.ts",
+      "default": "./dist/testing/index.js"
+    },
+    "./testing/jest-global-setup": {
+      "types": "./dist/testing/global-setup.d.ts",
+      "default": "./dist/testing/global-setup.js"
+    },
+    "./testing/jest-global-teardown": {
+      "types": "./dist/testing/global-teardown.d.ts",
+      "default": "./dist/testing/global-teardown.js"
+    }
+  },
+  "files": [
+    "dist",
+    "prisma",
+    "prisma.config.ts"
+  ],
   "scripts": {
+    "build": "tsc -p tsconfig.build.json",
     "db:validate": "prisma validate",
     "db:migrate:dev": "prisma migrate dev",
     "db:migrate:deploy": "prisma migrate deploy",
@@ -12,16 +38,23 @@
     "db:drift": "prisma migrate status && prisma migrate diff --from-config-datasource --to-schema prisma/schema.prisma --exit-code",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit -p tsconfig.json",
-    "test": "prisma validate"
+    "test": "NODE_OPTIONS='--experimental-vm-modules --no-warnings=ExperimentalWarning' jest"
   },
   "dependencies": {
     "dotenv": "catalog:",
     "prisma": "catalog:"
   },
   "devDependencies": {
+    "@testcontainers/postgresql": "catalog:",
     "@tms/config": "workspace:*",
+    "@types/jest": "catalog:",
     "@types/node": "catalog:",
+    "@types/pg": "catalog:",
     "eslint": "catalog:",
-    "typescript": "catalog:"
+    "jest": "catalog:",
+    "pg": "catalog:",
+    "testcontainers": "catalog:",
+    "ts-jest": "catalog:",
+    "typescript": "catalog:nest-ts6"
   }
 }
