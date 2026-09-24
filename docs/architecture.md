@@ -67,6 +67,9 @@ CommonJS apps and libraries load it through Node's `require(esm)` (Node 22.12+, 
 `await` allowed in the package). Every package `exports` entry carries `types` + `default`, never
 `import` only, so both module systems and TypeScript's `nodenext` resolution land on the same file;
 subpaths (`./security`, `./audit`) are the only deep imports the exports map allows.
+`auth-core` is CommonJS and tested with Jest like the other Nest-aware libraries, but imports no
+workspace package, no Nest and no Prisma (its own `no-restricted-imports` rule plus
+`purity.spec.ts`): it holds ports and pure algorithms, and `@tms/domain/admin` binds the adapters.
 
 ## Environments
 

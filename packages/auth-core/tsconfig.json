@@ -1,0 +1,5 @@
+{
+  "extends": "@tms/config/tsconfig/nest-library.json",
+  "compilerOptions": { "rootDir": ".", "outDir": "dist", "types": ["node", "jest"] },
+  "include": ["src", "test"]
+}
