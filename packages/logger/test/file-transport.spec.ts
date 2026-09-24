@@ -50,43 +50,59 @@ function rollTransport(opts: LoggerOptions): Transport {
   });
 }
 
-// pino-roll counts bytes per chunk the worker receives: a synchronous burst arrives as one chunk and
-// never rolls, so lines go out in spaced batches; the final pause lets cleanup finish.
-async function logInBatches(logger: pino.Logger, lines: number): Promise<void> {
-  for (let i = 0; i < lines; i += 1) {
-    logger.info(
-      { i, password: SECRET },
-      `line ${i} Bearer ${SECRET} padding to reach the size limit`,
-    );
-    if (i % 5 === 4) await sleep(40);
-  }
-  await sleep(200);
-}
-
 async function end(transport: Transport): Promise<void> {
   const closed = once(transport, 'close');
   transport.end();
   await closed;
 }
 
-// pino-roll's size-triggered roll waits for a 'drain' event inside the worker thread, and its
-// retention cleanup (removeOldFiles) runs as a fire-and-forget promise that the roll callback never
-// awaits — neither is signalled back to this (main) thread, and `end(transport)`'s 'close' event
-// guarantees only that the file descriptor finished closing, not that a pending roll or cleanup had
-// already run. A fixed sleep tuned to one machine's I/O speed is not a reliable way to wait for that
-// worker-thread async work, so poll the directory for the expected end-state instead, generously
-// bounded so a slower CI runner still gets there.
-async function waitForDir(
+// Padded well past the 1 KB roll threshold on its own: whatever the worker's ring buffer happens to
+// coalesce a write into (one line or several — see logUntilRolled below), that single write's byte
+// count already crosses the limit. Rotation no longer depends on the OS/pipe layer ever delivering
+// more than one chunk.
+const OVERSIZED_PADDING = 'x'.repeat(1200);
+const forceRollLine = (i: number): string =>
+  `line ${i} Bearer ${SECRET} padding to reach the size limit ${OVERSIZED_PADDING}`;
+
+/**
+ * Logs oversized lines and polls `dir` until `predicate` holds, or `timeoutMs` elapses — and must
+ * run to completion *before* the transport is ended. Installed-source facts (not assumptions):
+ * pino-roll's size-triggered roll (`pino-roll.js`) only fires once the worker-thread destination
+ * emits a 'drain' event (`destination.once('drain', () => roll())`); SonicBoom.prototype.end()
+ * (`sonic-boom/index.js`) sets an internal `_ending` flag as the very first thing it does, and once
+ * `_ending` is true, `release()`'s branch that emits 'drain' (`else { ...; this.emit('drain') }`)
+ * becomes permanently unreachable for the rest of that destination's life — it only reaches the
+ * `_ending` branch instead, which flushes remaining bytes and closes, but never emits 'drain'. So a
+ * roll still waiting on 'drain' when `end(transport)` runs is not delayed, it is lost forever: no
+ * amount of waiting *after* `end()` can make it happen (this is what round 1's `waitForDir`-after-
+ * `end()` got wrong). Polling before `end()`, and continuing to log while unmet, keeps producing
+ * fresh 'write'/'drain' opportunities until the roll (and, for the retention test, its synchronous-
+ * within-`roll()` cleanup) has actually completed on disk.
+ */
+async function logUntilRolled(
+  logger: pino.Logger,
   dir: string,
   predicate: (files: string[]) => boolean,
-  { timeoutMs = 5000, intervalMs = 25 }: { timeoutMs?: number; intervalMs?: number } = {},
+  {
+    timeoutMs = 8000,
+    batchSize = 3,
+    intervalMs = 20,
+  }: {
+    timeoutMs?: number;
+    batchSize?: number;
+    intervalMs?: number;
+  } = {},
 ): Promise<string[]> {
   const deadline = Date.now() + timeoutMs;
+  let i = 0;
   for (;;) {
+    for (let b = 0; b < batchSize; b += 1, i += 1) {
+      logger.info({ i, password: SECRET }, forceRollLine(i));
+    }
+    await sleep(intervalMs);
     const files = existsSync(dir) ? readdirSync(dir) : [];
     if (predicate(files)) return files;
     if (Date.now() > deadline) return files;
-    await sleep(intervalMs);
   }
 }
 
@@ -94,13 +110,14 @@ describe('file transport', () => {
   it('rolls into <app>.<yyyy-MM-dd>.<n>.log files, within the retention limit, without secrets', async () => {
     const opts = options(tempDir());
     const transport = rollTransport(opts);
-    await logInBatches(pino(buildPinoOptions(opts), transport), 30);
-    await end(transport);
+    const logger = pino(buildPinoOptions(opts), transport);
     const appDir = path.join(opts.file.dir, 'api-admin');
-    const files = await waitForDir(
+    const files = await logUntilRolled(
+      logger,
       appDir,
       (candidates) => candidates.length >= 2 && candidates.length <= opts.file.retentionDays + 1,
     );
+    await end(transport);
     expect(files.length).toBeGreaterThanOrEqual(2);
     expect(files.length).toBeLessThanOrEqual(opts.file.retentionDays + 1);
     expect(files.every((file) => FILE_NAME.test(file))).toBe(true);
@@ -122,12 +139,13 @@ describe('file transport', () => {
     const driverBefore = readdirSync(path.join(dir, 'api-driver')).sort();
     const opts = options(dir, { retentionDays: 1 });
     const transport = rollTransport(opts);
-    await logInBatches(pino(buildPinoOptions(opts), transport), 20);
-    await end(transport);
-    const adminFiles = await waitForDir(
+    const logger = pino(buildPinoOptions(opts), transport);
+    const adminFiles = await logUntilRolled(
+      logger,
       path.join(dir, 'api-admin'),
       (candidates) => candidates.filter((file) => file.includes('.2026-01-')).length === 0,
     );
+    await end(transport);
     expect(adminFiles.filter((file) => file.includes('.2026-01-'))).toEqual([]);
     expect(readdirSync(path.join(dir, 'api-driver')).sort()).toEqual(driverBefore);
     expect(readAll(path.join(dir, 'api-driver'))).toContain('"old":"api-driver 2026-01-04"');
