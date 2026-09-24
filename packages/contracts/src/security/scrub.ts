@@ -8,6 +8,7 @@ export const MAX_DEPTH_REACHED = '[MaxDepth]' as const;
 /**
  * Words that mark a key as sensitive (spec section 11 plus the token, device and session
  * material of sections 8 and 9). Compared against whole words of the key, never substrings.
+ * `serial` is the IdentityCard column itself, so `serialNumber` is over-redacted on purpose.
  */
 export const SENSITIVE_KEY_TOKENS = [
   'password',
@@ -17,6 +18,8 @@ export const SENSITIVE_KEY_TOKENS = [
   'pin',
   'pins',
   'cardserial',
+  'serial',
+  'serials',
   'token',
   'tokens',
   'jwt',
@@ -66,12 +69,28 @@ export function isSensitiveKey(key: string): boolean {
   return false;
 }
 
-const AUTH_SCHEME = /\b(bearer|basic|digest)\s+(\[REDACTED\]|[^\s,;"')}\]]+)/gi;
+// Value classes never contain `\`: the logger scrubs finished JSON lines, where a message's quotes
+// arrive as `\"`, and eating that backslash would leave an unescaped quote (invalid JSON).
+// The alternative `\[[A-Za-z]+\]` keeps bracketed markers whole: a second pass leaves
+// `[REDACTED]` alone and Sentry's `[Filtered]` becomes `[REDACTED]`, not `[REDACTED]]`.
+const AUTH_SCHEME = /\b(bearer|basic|digest)\s+(\[[A-Za-z]+\]|[^\s,;"'\\)}\]]+)/gi;
 const URL_CREDENTIALS = /(\/\/)([^\s/@:?#]+):([^\s/@?#]*)@/g;
-// The value alternative `\[[A-Za-z]+\]` keeps bracketed markers whole: a second pass leaves
-// `token=[REDACTED]` alone and Sentry's `token=[Filtered]` becomes `token=[REDACTED]`, not `…]]`.
-const KEY_VALUE =
-  /(^|[\s?&;,("'{[])([A-Za-z_][A-Za-z0-9_.\-[\]]{0,63})\s*=\s*(\[[A-Za-z]+\]|[^\s&;,)"'}\]#]+)/g;
+// Values of `key=value`, first match wins: a bracketed marker; a quoted value escaped inside a
+// JSON string (`\"…\"`, whole escape pairs only, the closing `\"` optional so an unterminated
+// value is still taken up to the end of the JSON string); a plain `"…"` or `'…'` value, followed
+// by a delimiter so that `"token=","b"` in JSON is never read as a quoted value; a bare value.
+const KEY_VALUE = new RegExp(
+  String.raw`(^|[\s?&;,("'{[])([A-Za-z_][A-Za-z0-9_.\-[\]]{0,63})\s*=\s*(` +
+    [
+      String.raw`\[[A-Za-z]+\]`,
+      String.raw`\\"(?:[^"\\]|\\[^"])*(?:\\")?`,
+      String.raw`"(?:[^"\\]|\\.)*"(?=$|[\s&;,)}\]#])`,
+      String.raw`'[^'"\\]*'(?=$|[\s&;,)}\]#])`,
+      String.raw`[^\s&;,)"'}\]#\\]+`,
+    ].join('|') +
+    ')',
+  'g',
+);
 const JSON_PAIR = /"([^"\\]{1,64})"\s*:\s*("(?:[^"\\]|\\.)*"|[^,}\]\s]+)/g;
 
 /**

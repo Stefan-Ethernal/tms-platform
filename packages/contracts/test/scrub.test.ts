@@ -60,6 +60,8 @@ describe('isSensitiveKey', () => {
     'deviceKey',
     'sessionId',
     'session_id',
+    'serial',
+    'serials',
   ])('matches %s', (key) => {
     expect(isSensitiveKey(key)).toBe(true);
   });
@@ -113,11 +115,29 @@ describe('scrubString', () => {
     ['{"pin": 1234, "kioskId": "k1"}', '{"pin":"[REDACTED]", "kioskId": "k1"}'],
     ['{"totp":"12 34\\"56"}', '{"totp":"[REDACTED]"}'],
     ['token=[Filtered]', 'token=[REDACTED]'],
+    ['Authorization: Bearer [Filtered]', 'Authorization: Bearer [REDACTED]'],
+    ['login failed password="hunter2" user=ana', 'login failed password=[REDACTED] user=ana'],
+    ["login failed password='hunter2' user=ana", 'login failed password=[REDACTED] user=ana'],
+    ['{"a":"token=","b":"x"}', '{"a":"token=","b":"x"}'],
     ['GET /x?token=[Filtered]&lang=en', 'GET /x?token=[REDACTED]&lang=en'],
     ['nothing to see here', 'nothing to see here'],
     ['', ''],
   ])('%s -> %s', (input, expected) => {
     expect(scrubString(input)).toBe(expected);
+  });
+
+  // The logger scrubs the finished JSON line, so a message's quotes arrive escaped (`\"`).
+  it.each([
+    ['login failed password="hunter2" user=ana', 'hunter2'],
+    ["login failed password='hunter2' user=ana", 'hunter2'],
+    ['header "Bearer abc123" rejected', 'abc123'],
+    ['url "https://x/a?token=abc123" failed', 'abc123'],
+    ['db "postgresql://tms:s3cret@db/tms" down', 's3cret'],
+    ['token=abc123\nnext line', 'abc123'],
+  ])('keeps a JSON log line valid and drops the secret: %s', (msg, secret) => {
+    const line = scrubString(JSON.stringify({ msg, level: 30 }));
+    expect(line).not.toContain(secret);
+    expect(JSON.parse(line)).toEqual({ msg: scrubString(msg), level: 30 });
   });
 
   it('is idempotent', () => {
