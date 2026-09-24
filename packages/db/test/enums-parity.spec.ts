@@ -1,17 +1,8 @@
 import { DB_MIRRORED_ENUMS } from '@tms/contracts';
 import { $Enums } from '../src';
 
-/** Contract enums whose Prisma counterpart arrives with the drivers, master-data and operations schema. */
-const NOT_YET_IN_SCHEMA: readonly string[] = [
-  'CheckInVia',
-  'DriverType',
-  'IdentityCardStatus',
-  'LoadingOrderStatus',
-  'LoadingPointKind',
-  'QueueEntryStatus',
-  'TransportKind',
-  'VehicleKind',
-];
+/** Every mirrored enum now exists in the schema; the list stays so a later phase can stage a new enum. */
+const NOT_YET_IN_SCHEMA: readonly string[] = [];
 
 const mirrored: Record<string, { options: readonly (string | number)[] }> = {
   ...DB_MIRRORED_ENUMS,
@@ -24,7 +15,7 @@ const expectedNames = Object.keys(mirrored)
 
 describe('enum parity between @tms/contracts and schema.prisma', () => {
   it('generates exactly the mirrored enums that exist in the schema so far', () => {
-    expect(expectedNames).toHaveLength(6);
+    expect(expectedNames).toHaveLength(14);
     expect(Object.keys(generated).sort()).toEqual(expectedNames);
   });
 
