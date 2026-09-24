@@ -17,6 +17,9 @@ jobs:
     name: e2e
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    env:
+      # Baked into both API images as SENTRY_RELEASE through the compose build argument.
+      GIT_SHA: ${{ github.sha }}
     steps:
       - uses: actions/checkout@v7
       - uses: pnpm/action-setup@v6

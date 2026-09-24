@@ -386,6 +386,22 @@ endpoint with `node -e "fetch(...)"` (the images have no curl), the APIs restart
 starts only when both APIs are healthy, and `infra/smoke.sh --full` proves both APIs started after
 `migrate` finished.
 
+### Sentry
+
+`@sentry/nestjs` 11 in both APIs, initialised by `src/instrument.ts`, the first import of
+`main.ts`, because the SDK has to load before Nest. An empty or unset `SENTRY_DSN` means
+`initSentry` does nothing: no client, no process listeners, no module hooks. Release = git SHA:
+the API image turns the `GIT_SHA` build argument into `SENTRY_RELEASE` (compose passes
+`${GIT_SHA:-dev}`, CI the commit SHA). `buildSentryOptions` (`@tms/nest-bootstrap/sentry`, kept
+Nest-free by a lint rule) collects no user data, cookies or bodies (`dataCollection`, Sentry 11's
+replacement for `sendDefaultPii`), no traces and no local variables. `beforeSend` runs
+`scrubSentryEvent`, built on the same `@tms/contracts/security` scrub list as the logs, over
+headers, query string, URL, request data, messages, exception values, extra, contexts, tags and
+breadcrumbs; it drops cookies and removes the user on `api-driver` (no user context on the kiosk).
+`SentryGlobalFilter`, registered by `CoreModule`, reports unexpected errors only; `HttpException`s
+are not reported and response bodies do not change. The SPAs and source-map upload follow in
+phase 8.
+
 ## Testing strategy
 
 See spec section 13. Phase 0 provides: Jest (unit + supertest e2e-spec) per API, Vitest per SPA

@@ -1,6 +1,9 @@
 import { LOG_LEVELS } from '@tms/logger';
 import { z } from 'zod';
 
+/** Unset and empty (`SENTRY_DSN=` in a `.env` file) both mean "not configured". */
+const emptyAsUndefined = (value: unknown): unknown => (value === '' ? undefined : value);
+
 /**
  * Variables both APIs read. Later pieces of shared infrastructure (the database connection and its
  * health check, Sentry) add theirs as further entries of this object as they land; an app extends
@@ -23,6 +26,10 @@ export const baseEnvSchema = z.object({
   }),
   // Upper bound of the database ping behind GET /api/health (D5).
   HEALTH_DB_TIMEOUT_MS: z.coerce.number().int().min(100).max(10_000).default(1000),
+  // Read raw by instrument.ts before this schema runs; validated here so a typo stops the boot.
+  SENTRY_DSN: z.preprocess(emptyAsUndefined, z.url({ protocol: /^https?$/ }).optional()),
+  SENTRY_ENVIRONMENT: z.preprocess(emptyAsUndefined, z.string().min(1).max(64).optional()),
+  SENTRY_RELEASE: z.preprocess(emptyAsUndefined, z.string().min(1).max(200).optional()),
 });
 
 /** The schema of one API: the shared variables plus PORT with the app's default. */

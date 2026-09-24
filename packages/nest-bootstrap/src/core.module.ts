@@ -1,4 +1,6 @@
 import { type DynamicModule, Module } from '@nestjs/common';
+import { APP_FILTER } from '@nestjs/core';
+import { SentryGlobalFilter, SentryModule } from '@sentry/nestjs/setup';
 import { PrismaModule } from '@tms/db/nest';
 import { createLoggerModule, type LoggerOptions } from '@tms/logger';
 import type { BaseEnv } from './env';
@@ -27,9 +29,11 @@ export class CoreModule {
             retentionDays: env.LOG_RETENTION_DAYS,
           },
         }),
+        SentryModule.forRoot(),
         PrismaModule.forRoot({ url: env.DATABASE_URL }),
         HealthModule.forRoot({ service: app, dbTimeoutMs: env.HEALTH_DB_TIMEOUT_MS }),
       ],
+      providers: [{ provide: APP_FILTER, useClass: SentryGlobalFilter }],
     };
   }
 }

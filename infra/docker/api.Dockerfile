@@ -22,5 +22,7 @@ RUN mkdir -p /var/log/tms && chown node:node /var/log/tms
 WORKDIR /app
 # Root-owned on purpose (deviation 10): the writable paths are LOG_DIR and /tmp.
 COPY --from=build /out .
+ARG GIT_SHA=dev
+ENV SENTRY_RELEASE=${GIT_SHA}
 USER node
 CMD ["node", "dist/main.js"]

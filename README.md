@@ -66,6 +66,19 @@ stack. Every pull request records what was actually verified (see the PR templat
 - Health: `GET /api/health` answers `200 {"status":"ok","service":"api-admin"}` (or `api-driver`) / `503 {"status":"degraded",...}`
   (database ping only, bounded by `HEALTH_DB_TIMEOUT_MS`); compose healthchecks, `infra/smoke.sh --full` and Playwright use it.
 
+## Error reporting
+
+Both APIs report unexpected errors to Sentry when a DSN is set; without one the SDK is not
+initialised at all.
+
+| Variable             | Default                    | Meaning                                            |
+| -------------------- | -------------------------- | -------------------------------------------------- |
+| `SENTRY_DSN`         | empty                      | project DSN; empty or unset disables Sentry        |
+| `SENTRY_ENVIRONMENT` | `NODE_ENV`                 | environment shown in Sentry                        |
+| `SENTRY_RELEASE`     | empty; images: the git SHA | release, from the image's `GIT_SHA` build argument |
+
+Compose: `SENTRY_DSN=<dsn> GIT_SHA=$(git rev-parse --short HEAD) pnpm compose --profile full up -d --build`.
+
 ## Repository layout
 
 | Path                                | Content                                                                                                                                             |
