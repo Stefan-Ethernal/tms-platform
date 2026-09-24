@@ -85,4 +85,21 @@ describe('OtplibTotpProvider', () => {
       ).toEqual({ ok: false });
     },
   );
+
+  // Security review (task 05 fix round), finding 1 (HIGH): otplib throws
+  // `AfterTimeStepRangeExceededError` instead of failing closed when `lastUsedStep` is ahead of
+  // the window computed from `now` (clock skew or a backward clock jump across replicas), which
+  // would otherwise crash the login/MFA caller instead of resolving `{ ok: false }`.
+  it('resolves ok:false instead of throwing when lastUsedStep is far ahead of the current window', async () => {
+    const step = 60_000_000;
+    const code = await generateTotpCode(RFC_SECRET, at(step));
+    await expect(
+      provider.verify({
+        secret: RFC_SECRET,
+        code,
+        now: at(step, 7),
+        lastUsedStep: step + 100,
+      }),
+    ).resolves.toEqual({ ok: false });
+  });
 });

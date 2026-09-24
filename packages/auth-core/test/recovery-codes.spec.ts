@@ -43,4 +43,19 @@ describe('recovery codes', () => {
     expect(h).toBe(hashRecoveryCode('ABCDEFGHJKMNPQRS'));
     expect(h).not.toContain('ABCDEFGHJKMNPQRS');
   });
+
+  // Security review (task 05 fix round), finding 2 (MEDIUM): a `RandomSource` that silently
+  // returns the wrong number of bytes must not produce a corrupted/low-entropy code (mirrors the
+  // guard `tokens.ts` already has for the same class of bug, from the task 03 review).
+  it('throws when the random source returns the wrong number of bytes', () => {
+    expect(() => generateRecoveryCodes({ bytes: () => Buffer.alloc(9) }, 1)).toThrow(RangeError);
+    expect(() => generateRecoveryCodes({ bytes: () => Buffer.alloc(11) }, 1)).toThrow(RangeError);
+  });
+
+  // Security review (task 05 fix round), finding 3 (MEDIUM): an unbounded `input` must be
+  // rejected before the case-folding/replace passes run, so an unauthenticated recovery-code
+  // route (Task 14/17) cannot be made to process arbitrarily large input on every request.
+  it('rejects an oversized input before doing any string work', () => {
+    expect(normalizeRecoveryCode('A'.repeat(65))).toBeNull();
+  });
 });
