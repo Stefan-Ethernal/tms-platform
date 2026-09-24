@@ -19,6 +19,12 @@
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "NODE_OPTIONS='--experimental-vm-modules --no-warnings=ExperimentalWarning' jest"
   },
+  "dependencies": {
+    "@node-rs/argon2": "catalog:",
+    "@zxcvbn-ts/core": "catalog:",
+    "@zxcvbn-ts/language-common": "catalog:",
+    "@zxcvbn-ts/language-en": "catalog:"
+  },
   "devDependencies": {
     "@tms/config": "workspace:*",
     "@types/jest": "catalog:",
