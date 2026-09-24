@@ -10,7 +10,8 @@ const CLIENT_REASON =
  * `.env`, `.env.*` except `*.example`, and everything under `docs/client/`.
  *
  * @param {string | undefined} filePath absolute or relative to `projectRoot`
- * @param {string} projectRoot the project root (CLAUDE_PROJECT_DIR), not the session cwd
+ * @param {string} projectRoot the root of the work tree holding the file (see project-root.mjs),
+ *   not the session cwd
  * @returns {{ blocked: boolean, reason?: string }}
  */
 export function classifyEdit(filePath, projectRoot) {
