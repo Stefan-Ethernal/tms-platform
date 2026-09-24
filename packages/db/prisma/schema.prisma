@@ -78,6 +78,11 @@ model User {
   issuedActionTokens ActionToken[]  @relation("ActionTokenCreatedBy")
   recoveryCodes      RecoveryCode[]
   auditEntries       AuditLog[]
+  driverProfile      DriverProfile?
+  identityCards      IdentityCard[]
+  loadingOrders      LoadingOrder[] @relation("LoadingOrderDriver")
+  createdOrders      LoadingOrder[] @relation("LoadingOrderCreatedBy")
+  removedEntries     QueueEntry[]   @relation("QueueEntryRemovedBy")
 }
 
 model Role {
@@ -178,4 +183,175 @@ model AuditLog {
   @@index([actorUserId])
   @@index([action])
   @@index([targetType, targetId])
+}
+
+enum DriverType {
+  TRUCK
+  RAIL
+}
+
+enum IdentityCardStatus {
+  ACTIVE
+  BLOCKED
+}
+
+enum VehicleKind {
+  TRUCK
+  RAIL_WAGON
+}
+
+enum LoadingPointKind {
+  TRUCK_ISLAND
+  RAIL_TRACK
+}
+
+enum TransportKind {
+  TRUCK
+  RAIL
+}
+
+enum LoadingOrderStatus {
+  CREATED
+  QUEUED
+  CALLED
+  LOADED
+  CANCELLED
+}
+
+enum QueueEntryStatus {
+  WAITING
+  CALLED
+  DONE
+  REMOVED
+}
+
+enum CheckInVia {
+  KIOSK
+  MANUAL
+}
+
+model Carrier {
+  id        String   @id @default(uuid(7)) @db.Uuid
+  name      String   @unique
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+
+  vehicles       Vehicle[]
+  driverProfiles DriverProfile[]
+  loadingOrders  LoadingOrder[]
+}
+
+model Vehicle {
+  id           String      @id @default(uuid(7)) @db.Uuid
+  registration String      @unique
+  carrierId    String      @db.Uuid
+  carrier      Carrier     @relation(fields: [carrierId], references: [id], onDelete: Restrict)
+  kind         VehicleKind
+  isBlocked    Boolean     @default(false)
+  createdAt    DateTime    @default(now()) @db.Timestamptz(3)
+  updatedAt    DateTime    @updatedAt @db.Timestamptz(3)
+
+  loadingOrders LoadingOrder[]
+}
+
+model Product {
+  id        String   @id @default(uuid(7)) @db.Uuid
+  code      String   @unique
+  name      String
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+
+  loadingOrders LoadingOrder[]
+}
+
+model LoadingPoint {
+  id        String           @id @default(uuid(7)) @db.Uuid
+  code      String           @unique
+  name      String
+  kind      LoadingPointKind
+  isActive  Boolean          @default(true)
+  createdAt DateTime         @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime         @updatedAt @db.Timestamptz(3)
+
+  queueEntries QueueEntry[]
+}
+
+model DriverProfile {
+  userId         String     @id @db.Uuid
+  user           User       @relation(fields: [userId], references: [id], onDelete: Restrict)
+  driverType     DriverType
+  carrierId      String     @db.Uuid
+  carrier        Carrier    @relation(fields: [carrierId], references: [id], onDelete: Restrict)
+  licenseNumber  String?
+  adrExpiresAt   DateTime?  @db.Date
+  pinHash        String
+  pinFailedCount Int        @default(0)
+  pinLockedUntil DateTime?  @db.Timestamptz(3)
+  pinUpdatedAt   DateTime   @db.Timestamptz(3)
+}
+
+model IdentityCard {
+  id           String             @id @default(uuid(7)) @db.Uuid
+  serial       String             @unique
+  userId       String             @db.Uuid
+  user         User               @relation(fields: [userId], references: [id], onDelete: Restrict)
+  activeUserId String?            @unique @db.Uuid
+  status       IdentityCardStatus @default(ACTIVE)
+  issuedAt     DateTime           @db.Timestamptz(3)
+}
+
+model LoadingOrder {
+  id             String             @id @default(uuid(7)) @db.Uuid
+  orderNumber    String             @unique
+  transportKind  TransportKind
+  driverId       String             @db.Uuid
+  driver         User               @relation("LoadingOrderDriver", fields: [driverId], references: [id], onDelete: Restrict)
+  vehicleId      String             @db.Uuid
+  vehicle        Vehicle            @relation(fields: [vehicleId], references: [id], onDelete: Restrict)
+  carrierId      String             @db.Uuid
+  carrier        Carrier            @relation(fields: [carrierId], references: [id], onDelete: Restrict)
+  productId      String             @db.Uuid
+  product        Product            @relation(fields: [productId], references: [id], onDelete: Restrict)
+  quantityLiters Int
+  plannedDate    DateTime           @db.Date
+  status         LoadingOrderStatus @default(CREATED)
+  notes          String?
+  createdById    String?            @db.Uuid
+  createdBy      User?              @relation("LoadingOrderCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  createdAt      DateTime           @default(now()) @db.Timestamptz(3)
+  updatedAt      DateTime           @updatedAt @db.Timestamptz(3)
+
+  queueEntries QueueEntry[]
+
+  @@index([driverId, plannedDate, status])
+}
+
+model QueueEntry {
+  id             String           @id @default(uuid(7)) @db.Uuid
+  orderId        String           @db.Uuid
+  order          LoadingOrder     @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  activeOrderId  String?          @unique @db.Uuid
+  day            DateTime         @db.Date
+  sequenceNumber Int
+  loadingPointId String?          @db.Uuid
+  loadingPoint   LoadingPoint?    @relation(fields: [loadingPointId], references: [id], onDelete: Restrict)
+  status         QueueEntryStatus @default(WAITING)
+  checkedInAt    DateTime         @db.Timestamptz(3)
+  checkedInVia   CheckInVia
+  kioskId        String?
+  calledAt       DateTime?        @db.Timestamptz(3)
+  completedAt    DateTime?        @db.Timestamptz(3)
+  removedById    String?          @db.Uuid
+  removedBy      User?            @relation("QueueEntryRemovedBy", fields: [removedById], references: [id], onDelete: Restrict)
+  removeReason   String?
+
+  @@unique([day, sequenceNumber])
+  @@index([day, status])
+}
+
+model QueueDayCounter {
+  day  DateTime @id @db.Date
+  next Int      @default(1)
 }
