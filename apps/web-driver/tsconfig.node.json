@@ -1,0 +1,5 @@
+{
+  "extends": "@tms/config/tsconfig/react-node.json",
+  "compilerOptions": { "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.node.tsbuildinfo" },
+  "include": ["vite.config.ts"]
+}
