@@ -15,3 +15,8 @@ The Prisma client is generated into `src/generated/prisma` (gitignored) by `pnpm
 `lint`, `typecheck`, `test` and `build` depend on that task, so a clean checkout needs no manual step.
 Applications obtain a client only through `createPrismaClient({ url })` from `@tms/db`.
 Row builders for tests (`makeRole`, `makeStaffUser`, …) come from `@tms/db/testing`; only tests import that subpath.
+
+The Prisma CLI (`prisma`) is an **optional** dependency. `pnpm install` installs it (development,
+CI, the `migrate` image built with `pnpm deploy --prod`), while the API images deploy with
+`--no-optional` and ship only `@prisma/client`, the driver adapter and `pg`. Nothing under `src/`
+may import `prisma` at runtime; only `prisma.config.ts` and the `dev-setup` CLI (local `predev`) use it.

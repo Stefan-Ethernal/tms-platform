@@ -25,7 +25,7 @@ end of the POC).
 pnpm install                                   # installs dependencies and git hooks
 cp infra/.env.example infra/.env
 cp packages/db/.env.example packages/db/.env   # set BOOTSTRAP_ADMIN_EMAIL to your address
-pnpm compose up -d --build && infra/smoke.sh   # postgres :5432, mailpit :8025, migrations applied
+pnpm compose up -d --build && infra/smoke.sh   # postgres :5432, mailpit :8025, migrate: deploy, sync, seed
 pnpm dev                                       # predev: migrate deploy, drift check, permission sync, seed;
                                                # then api-admin :3001, api-driver :3002, web-admin :5173, web-driver :5174
 ```
@@ -39,6 +39,11 @@ username `admin`). Rows an administrator edited later are never overwritten. Pha
 Production-like stack (Caddy on one origin per app): `pnpm compose --profile full up -d --build`,
 then `infra/smoke.sh --full` and `pnpm e2e`. Admin at http://localhost:8080, kiosk at
 http://localhost:8081.
+
+The compose `migrate` one-shot applies migrations, synchronises the permission catalogue and runs
+the same create-only seed as `predev`; the APIs start only after it exited 0. The INVITED bootstrap
+administrator comes from `BOOTSTRAP_ADMIN_EMAIL` / `BOOTSTRAP_ADMIN_USERNAME` in `infra/.env`
+(defaults `admin@example.com` / `admin`); on an empty database without an email `migrate` exits 2.
 
 ## Verification
 

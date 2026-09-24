@@ -53,7 +53,9 @@
     "@prisma/client": "catalog:",
     "@tms/contracts": "workspace:*",
     "dotenv": "catalog:",
-    "pg": "catalog:",
+    "pg": "catalog:"
+  },
+  "optionalDependencies": {
     "prisma": "catalog:"
   },
   "devDependencies": {
