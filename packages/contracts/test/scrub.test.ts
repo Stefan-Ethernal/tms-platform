@@ -96,6 +96,13 @@ describe('isSensitiveKey', () => {
   ])('does not match %s', (key) => {
     expect(isSensitiveKey(key)).toBe(false);
   });
+
+  it.each(['otpauthUri', 'otpauth_uri', 'OtpauthURI'])(
+    'matches the TOTP enrollment URI key %s (phase 2)',
+    (key) => {
+      expect(isSensitiveKey(key)).toBe(true);
+    },
+  );
 });
 
 describe('scrubString', () => {

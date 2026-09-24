@@ -7,6 +7,7 @@ import {
   validateCatalogue,
   type PermissionDefinition,
 } from '../src/permissions.js';
+import { resolveRolePermissions, SEEDED_ROLES } from '../src/roles.js';
 
 const entry = (over: Partial<Record<keyof PermissionDefinition, unknown>>): PermissionDefinition =>
   ({
@@ -19,9 +20,9 @@ const entry = (over: Partial<Record<keyof PermissionDefinition, unknown>>): Perm
   }) as PermissionDefinition;
 
 describe('PERMISSIONS', () => {
-  it('is a valid catalogue of 33 codes covering the 13 groups', () => {
+  it('is a valid catalogue of 35 codes covering the 13 groups', () => {
     expect(validateCatalogue(PERMISSIONS)).toEqual([]);
-    expect(PERMISSIONS).toHaveLength(33);
+    expect(PERMISSIONS).toHaveLength(35);
     expect(new Set(PERMISSIONS.map((p) => p.group))).toEqual(new Set(PERMISSION_GROUPS));
   });
 
@@ -56,7 +57,7 @@ describe('PERMISSIONS', () => {
 
   it('gives checkin:perform to DRIVER and everything else to STAFF', () => {
     expect(permissionCodesForAudience('DRIVER')).toEqual(['checkin:perform']);
-    expect(permissionCodesForAudience('STAFF')).toHaveLength(32);
+    expect(permissionCodesForAudience('STAFF')).toHaveLength(34);
   });
 
   it('splits the PIN reset and the card block out of drivers:manage and cards:manage', () => {
@@ -78,6 +79,20 @@ describe('PERMISSIONS', () => {
   it('PermissionCodeSchema accepts live codes only', () => {
     expect(PermissionCodeSchema.parse('queue:call')).toBe('queue:call');
     expect(PermissionCodeSchema.safeParse('queue:fly').success).toBe(false);
+  });
+
+  it('has dedicated codes for deactivation and role assignment (phase 2)', () => {
+    const byCode = new Map<string, PermissionDefinition>(PERMISSIONS.map((p) => [p.code, p]));
+    for (const code of ['users:deactivate', 'users:assign-role']) {
+      expect(byCode.get(code), code).toMatchObject({ group: 'users', audience: 'STAFF' });
+    }
+    expect(byCode.get('users:block')?.defaultDescription).toBe('Block and unblock users.');
+    const admin = SEEDED_ROLES.find((r) => r.key === 'admin');
+    const operator = SEEDED_ROLES.find((r) => r.key === 'operator');
+    expect(resolveRolePermissions(admin!)).toEqual(
+      expect.arrayContaining(['users:deactivate', 'users:assign-role']),
+    );
+    expect(resolveRolePermissions(operator!)).not.toContain('users:assign-role');
   });
 });
 

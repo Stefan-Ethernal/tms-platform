@@ -122,7 +122,7 @@ describe('AUDIT_ACTIONS', () => {
     expect(Object.keys(ADMIN_AUDIT_ACTIONS).filter((a) => a.startsWith('admin.order.'))).toEqual(
       [],
     );
-    expect(AUDIT_ACTION_NAMES).toHaveLength(50);
+    expect(AUDIT_ACTION_NAMES).toHaveLength(55);
   });
 
   it('carries the phase 3 metadata: no PIN, a permission code, export field names only', () => {
@@ -202,6 +202,106 @@ describe('parseAuditMetadata', () => {
   it('rejects an action that is not in the catalogue', () => {
     expect(() => parseAuditMetadata('auth.login.oops' as never, {})).toThrow(
       'Invalid audit metadata for auth.login.oops: <root>: unknown audit action',
+    );
+  });
+});
+
+describe('phase 2 auth and admin metadata (Task 08)', () => {
+  it('adds five actions and accepts {} wherever every field is optional', () => {
+    for (const action of [
+      'auth.enrollment.completed',
+      'auth.password.changed',
+      'auth.recovery-codes.regenerated',
+      'auth.mfa-reset.accepted',
+      'admin.user.password-reset-sent',
+    ]) {
+      expect(AUDIT_ACTIONS, action).toHaveProperty(action);
+    }
+    for (const action of [
+      'auth.invite.issued',
+      'auth.invite.resent',
+      'auth.invite.accepted',
+      'auth.password.set',
+      'auth.totp.enrolled',
+      'auth.totp.verified',
+      'auth.mfa.reset',
+      'auth.password-reset.requested',
+      'auth.password-reset.completed',
+      'auth.password.changed',
+      'auth.recovery-codes.regenerated',
+      'auth.mfa-reset.accepted',
+      'admin.user.blocked',
+      'admin.user.unblocked',
+      'admin.user.deactivated',
+      'admin.user.unlocked',
+      'admin.user.password-reset-sent',
+    ] as const) {
+      expect(parseAuditMetadata(action, {}), action).toEqual({});
+    }
+  });
+
+  it('extends the login failure reasons and adds the optional lockout level', () => {
+    for (const reason of ['UNKNOWN_ACCOUNT', 'NOT_STAFF', 'MFA_RESET_PENDING'] as const) {
+      expect(parseAuditMetadata('auth.login.failure', { method: 'PASSWORD', reason })).toEqual({
+        method: 'PASSWORD',
+        reason,
+      });
+    }
+    const lock = { failedAttempts: 5, lockedUntil: '2026-09-23T10:15:00.000Z' };
+    expect(parseAuditMetadata('auth.lockout.applied', lock)).toEqual(lock);
+    expect(parseAuditMetadata('auth.lockout.applied', { ...lock, level: 2 })).toEqual({
+      ...lock,
+      level: 2,
+    });
+    expect(() => parseAuditMetadata('auth.lockout.applied', { ...lock, level: 0 })).toThrow(
+      /level: Too small/,
+    );
+  });
+
+  it('writes FAILURE rows without expiresAt and counts revoked links, never tokens', () => {
+    expect(parseAuditMetadata('auth.invite.issued', { via: 'ADMIN' })).toEqual({ via: 'ADMIN' });
+    expect(
+      parseAuditMetadata('admin.user.blocked', { sessionsRevoked: 2, linksRevoked: 1 }),
+    ).toEqual({
+      sessionsRevoked: 2,
+      linksRevoked: 1,
+    });
+    expect(() => parseAuditMetadata('admin.user.blocked', { tokensRevoked: 1 })).toThrow(
+      /Unrecognized key: "tokensRevoked"/,
+    );
+    expect(isSensitiveKey('tokensRevoked')).toBe(true);
+    expect(isSensitiveKey('linksRevoked')).toBe(false);
+  });
+
+  it('keeps the role ids required, the flow required and every reason a closed enum', () => {
+    expect(() => parseAuditMetadata('admin.user.role-changed', { toRoleId: 'role-b' })).toThrow(
+      /fromRoleId: Invalid input/,
+    );
+    expect(
+      parseAuditMetadata('admin.user.role-changed', {
+        fromRoleId: 'role-a',
+        toRoleId: 'role-b',
+        reason: 'LAST_ADMIN',
+      }),
+    ).toEqual({ fromRoleId: 'role-a', toRoleId: 'role-b', reason: 'LAST_ADMIN' });
+    expect(
+      parseAuditMetadata('auth.mfa.reset', { via: 'CLI', sessionsRevoked: 1, linksRevoked: 0 }),
+    ).toEqual({
+      via: 'CLI',
+      sessionsRevoked: 1,
+      linksRevoked: 0,
+    });
+    expect(
+      parseAuditMetadata('auth.password-reset.completed', {
+        sessionsRevoked: 3,
+        mfaResetReissued: true,
+      }),
+    ).toEqual({ sessionsRevoked: 3, mfaResetReissued: true });
+    expect(() => parseAuditMetadata('auth.enrollment.completed', {})).toThrow(
+      /flow: Invalid option/,
+    );
+    expect(() => parseAuditMetadata('auth.totp.verified', { reason: 'BAD_CODE' })).toThrow(
+      /reason: Invalid option/,
     );
   });
 });
