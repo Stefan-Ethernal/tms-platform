@@ -69,4 +69,17 @@ typescript-eslint its own classic compiler. Remove both workarounds once 7.1 shi
 - Process per phase: `superpowers:writing-plans` → `plan-critic` agent (fresh, read-only) →
   `superpowers:subagent-driven-development`. Log every task and critic pass in
   `docs/efficiency/<lane>.md` as it happens.
-- Auth/RBAC/session/token PRs need `security-reviewer`; all others `/code-review`.
+- Auth/RBAC/session/token PRs need `security-reviewer`; all others `/code-review` (`low` for small PRs).
+
+## Token budget
+
+- A phase plan is a directory: `index.md` (constraints, shared interfaces, overview), one
+  `task-NN.md` per task, `review.md` (deviations, reconcile, critic). Agents get the index and
+  their own task file, never the whole plan.
+- The plan for phase N+1 is written only after phase N is merged.
+- Main session on Sonnet; Opus (not the 1M variant) for design; Fable only for `plan-critic`, once
+  per phase. `/clear` once `/context` passes ~150k. At most 2 parallel sessions.
+- Set `model` on every subagent. A task whose file carries the code: Sonnet implementer plus one
+  combined Sonnet review; Opus review only for auth/RBAC tasks.
+- Scoped `pnpm turbo run <task> --filter=<package>` while working; full `pnpm verify` before the
+  PR; tail long outputs.
