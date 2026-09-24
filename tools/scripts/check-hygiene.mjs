@@ -5,12 +5,13 @@
  *    OpenDocument, Visio, AutoCAD drawings and saved mail (FORBIDDEN_DOCUMENT_RE),
  *  - CLAUDE.md stays short,
  *  - packages whose classes must exist once per process are installed once
- *    (SINGLE_COPY_PACKAGES; skipped without node_modules/.pnpm, e.g. in the CI hygiene job).
+ *    (SINGLE_COPY_PACKAGES, read from the installed lockfile node_modules/.pnpm/lock.yaml;
+ *    skipped without it, e.g. in the CI hygiene job).
  * The client's name is kept out of the repository by convention, not by this script
  * (ADR 0007). Exit 1 with one line per problem.
  */
 import { execFileSync } from 'node:child_process';
-import { existsSync, readdirSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -20,8 +21,8 @@ export const CLIENT_DOCS_DIR = 'docs/client/';
 export const CLAUDE_MD_MAX_LINES = 150;
 /**
  * Nest's DI tokens and nestjs-cls' TransactionHost/ClsService are compared by class identity; a
- * second copy (another version or another peer-dependency set, i.e. another directory in
- * node_modules/.pnpm) splits them silently. Packages not installed yet are fine.
+ * second copy (another version or another peer-dependency set, i.e. another snapshot in the
+ * installed lockfile) splits them silently. Packages not installed yet are fine.
  */
 export const SINGLE_COPY_PACKAGES = [
   '@nestjs/common',
@@ -46,14 +47,37 @@ export function claudeMdLineCount(text) {
 }
 
 /**
- * @param {string[]} storeEntries directory names in node_modules/.pnpm
+ * Snapshot keys of pnpm's installed lockfile (node_modules/.pnpm/lock.yaml): one key per package
+ * pnpm materialized, `<name>@<version>[(<peer>)…]`. The virtual-store directories are no source
+ * of truth, because pnpm leaves orphaned ones behind after a version change. A line reader is
+ * enough: pnpm writes each key at two spaces of indentation under the top-level `snapshots:`.
+ *
+ * @param {string} lockYaml
+ * @returns {string[]}
+ */
+export function readSnapshotKeys(lockYaml) {
+  const keys = [];
+  let inSnapshots = false;
+  for (const line of lockYaml.split('\n')) {
+    if (/^\S/.test(line)) {
+      inSnapshots = line.trimEnd() === 'snapshots:';
+      continue;
+    }
+    const key = inSnapshots && /^ {2}(?:'([^']+)'|([^\s'][^:]*)):/.exec(line);
+    if (key) keys.push(key[1] ?? key[2]);
+  }
+  return keys;
+}
+
+/**
+ * @param {string[]} storeEntries snapshot keys of the installed lockfile (readSnapshotKeys)
  * @param {string[]} packages
  * @returns {{ name: string, copies: string[] }[]}
  */
 export function findDuplicateCopies(storeEntries, packages = SINGLE_COPY_PACKAGES) {
   return packages.flatMap((name) => {
-    // pnpm names a store directory `<name with / as +>@<version>[_<peer set>]`.
-    const prefix = `${name.replace('/', '+')}@`;
+    // `<name>@` never matches a longer name that merely starts with `<name>`.
+    const prefix = `${name}@`;
     const copies = storeEntries.filter((entry) => entry.startsWith(prefix)).sort();
     return copies.length > 1 ? [{ name, copies }] : [];
   });
@@ -61,7 +85,8 @@ export function findDuplicateCopies(storeEntries, packages = SINGLE_COPY_PACKAGE
 
 /**
  * @param {{ trackedFiles: string[], claudeMd: string | null, pnpmStoreEntries?: string[] | null }} input
- *   `pnpmStoreEntries` is null when node_modules/.pnpm does not exist (check skipped).
+ *   `pnpmStoreEntries` (snapshot keys of the installed lockfile) is null when
+ *   node_modules/.pnpm/lock.yaml does not exist (check skipped).
  */
 export function runHygiene({ trackedFiles, claudeMd, pnpmStoreEntries = null }) {
   const problems = findForbiddenDocuments(trackedFiles).map((f) =>
@@ -94,8 +119,10 @@ function main() {
     .filter(Boolean);
   const claudeMdPath = path.join(repoRoot, 'CLAUDE.md');
   const claudeMd = existsSync(claudeMdPath) ? readFileSync(claudeMdPath, 'utf8') : null;
-  const storeDir = path.join(repoRoot, 'node_modules', '.pnpm');
-  const pnpmStoreEntries = existsSync(storeDir) ? readdirSync(storeDir) : null;
+  const installedLockfile = path.join(repoRoot, 'node_modules', '.pnpm', 'lock.yaml');
+  const pnpmStoreEntries = existsSync(installedLockfile)
+    ? readSnapshotKeys(readFileSync(installedLockfile, 'utf8'))
+    : null;
 
   const problems = runHygiene({ trackedFiles, claudeMd, pnpmStoreEntries });
   for (const p of problems) console.error(`hygiene: ${p}`);
