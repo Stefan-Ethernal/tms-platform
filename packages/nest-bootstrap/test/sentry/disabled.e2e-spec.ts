@@ -39,7 +39,11 @@ describe('Sentry without a DSN (e2e)', () => {
 
   it('still answers the standard 500 and never calls the transport', async () => {
     const res = await request(app.getHttpServer()).get('/api/boom?token=abc123').expect(500);
-    expect(res.body).toEqual({ statusCode: 500, message: 'Internal server error' });
+    expect(res.body).toEqual({
+      statusCode: 500,
+      code: 'INTERNAL',
+      message: 'Internal server error',
+    });
     await Sentry.flush(500);
     expect(captured).toHaveLength(0);
   });

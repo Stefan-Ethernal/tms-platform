@@ -17,7 +17,7 @@ import request from 'supertest';
 import type { App } from 'supertest/types';
 import { createBoomApp } from './boom-app';
 
-describe('Sentry capture through SentryGlobalFilter (e2e)', () => {
+describe('Sentry capture through ApiExceptionFilter (e2e)', () => {
   let app: INestApplication<App>;
 
   beforeAll(async () => {
@@ -37,7 +37,11 @@ describe('Sentry capture through SentryGlobalFilter (e2e)', () => {
       .set('Cookie', 'sid=ck-secret-3')
       .set('X-Note', 'password=pw-secret-4')
       .expect(500);
-    expect(res.body).toEqual({ statusCode: 500, message: 'Internal server error' });
+    expect(res.body).toEqual({
+      statusCode: 500,
+      code: 'INTERNAL',
+      message: 'Internal server error',
+    });
     expect(JSON.stringify(res.body)).not.toMatch(/at .*\.[jt]s:\d+/);
 
     expect(await Sentry.flush(2000)).toBe(true);
@@ -84,7 +88,7 @@ describe('Sentry capture through SentryGlobalFilter (e2e)', () => {
     expect(res.headers['content-type']).toMatch(/application\/json/);
     expect(res.body).toEqual({
       statusCode: 404,
-      error: 'Not Found',
+      code: 'NOT_FOUND',
       message: 'Cannot GET /api/does-not-exist',
     });
   });

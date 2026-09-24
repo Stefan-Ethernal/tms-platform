@@ -1,10 +1,11 @@
 import { type DynamicModule, Module } from '@nestjs/common';
-import { APP_FILTER } from '@nestjs/core';
-import { SentryGlobalFilter, SentryModule } from '@sentry/nestjs/setup';
+import { APP_FILTER, APP_PIPE } from '@nestjs/core';
+import { SentryModule } from '@sentry/nestjs/setup';
 import { PrismaModule } from '@tms/db/nest';
 import { createLoggerModule, type LoggerOptions } from '@tms/logger';
 import type { BaseEnv } from './env';
 import { HealthModule } from './health/health.module';
+import { ApiExceptionFilter, ZodValidationPipe } from './http';
 
 /** The two deployables; also the name of each app's log directory and files. */
 export type ApiName = LoggerOptions['app'];
@@ -33,7 +34,10 @@ export class CoreModule {
         PrismaModule.forRoot({ url: env.DATABASE_URL }),
         HealthModule.forRoot({ service: app, dbTimeoutMs: env.HEALTH_DB_TIMEOUT_MS }),
       ],
-      providers: [{ provide: APP_FILTER, useClass: SentryGlobalFilter }],
+      providers: [
+        { provide: APP_FILTER, useClass: ApiExceptionFilter },
+        { provide: APP_PIPE, useClass: ZodValidationPipe },
+      ],
     };
   }
 }

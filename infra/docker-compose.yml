@@ -72,6 +72,7 @@ services:
       SENTRY_ENVIRONMENT: ${SENTRY_ENVIRONMENT:-}
       LOG_DIR: /var/log/tms
       LOG_FILE_ENABLED: 'true'
+      TRUST_PROXY: 'loopback, uniquelocal'
     # Read-only root filesystem (deviation 10); the writable paths are the logs volume and /tmp.
     read_only: true
     tmpfs:
@@ -112,6 +113,7 @@ services:
       SENTRY_ENVIRONMENT: ${SENTRY_ENVIRONMENT:-}
       LOG_DIR: /var/log/tms
       LOG_FILE_ENABLED: 'true'
+      TRUST_PROXY: 'loopback, uniquelocal'
     read_only: true
     tmpfs:
       - /tmp

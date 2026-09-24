@@ -6,3 +6,4 @@ export { LOG_LEVELS, type LogLevel } from '@tms/logger';
 export type { Logger } from '@tms/logger';
 export { HealthModule } from './health/health.module';
 export type { HealthBody, HealthModuleOptions } from './health/health.options';
+export * from './http';

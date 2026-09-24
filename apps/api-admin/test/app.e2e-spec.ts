@@ -80,11 +80,12 @@ describe('api-admin skeleton (e2e)', () => {
     expect(res.headers['content-type']).toMatch(/application\/json/);
     expect(res.body).toEqual({
       statusCode: 404,
-      error: 'Not Found',
+      code: 'NOT_FOUND',
       message: 'Cannot GET /api/does-not-exist',
     });
     expect(JSON.stringify(res.body)).not.toMatch(/at .*\.js:\d+/);
     expect(res.headers['x-request-id']).toMatch(UUID);
+    expect(res.headers['x-powered-by']).toBeUndefined();
   });
 
   it('serves nothing outside the /api prefix', async () => {

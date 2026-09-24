@@ -14,6 +14,7 @@ describe('api-admin environment', () => {
       DATABASE_URL,
       HEALTH_DB_TIMEOUT_MS: 1000,
       PORT: 3001,
+      TRUST_PROXY: 'loopback',
     });
   });
 });
