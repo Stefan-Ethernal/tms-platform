@@ -6,7 +6,7 @@ x-database-url: &database-url postgresql://tms:${POSTGRES_PASSWORD:-tms}@postgre
 
 services:
   postgres:
-    image: postgres:16-alpine
+    image: postgres:18-alpine
     environment:
       POSTGRES_USER: tms
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-tms}
