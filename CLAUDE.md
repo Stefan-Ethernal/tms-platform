@@ -47,8 +47,8 @@ typescript-eslint its own classic compiler. Remove both workarounds once 7.1 shi
 
 - TDD: failing test first; every task ends with its own verification (`pnpm verify` or the
   task's scoped equivalent) and real output in the PR.
-- Dependency rule `contracts <- db <- domain <- apps` (eslint boundaries); `api-driver` imports
-  only `@tms/domain/checkin` and `@tms/domain/shared`.
+- Dependency rule `contracts <- db <- domain <- apps`, `contracts, db, logger <- bootstrap <- api`,
+  web apps only `contracts`/`ui` (eslint boundaries); `api-driver` only `@tms/domain/{checkin,shared}`.
 - Every route is decorated `@RequirePermissions` or `@Public` (from phase 3a); audit records are
   written inside the caller's transaction; enums and DTO schemas live in `contracts`.
 - UI strings only through i18n keys; `en` is the only bundle for now.

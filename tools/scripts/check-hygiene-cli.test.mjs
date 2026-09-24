@@ -40,4 +40,22 @@ describe('check-hygiene CLI', () => {
     expect(passing.status).toBe(0);
     expect(passing.stdout).toContain('hygiene: ok');
   });
+
+  it('exits 1 on two store directories of a single-copy package and 0 with one', () => {
+    const store = path.join(repo, 'node_modules', '.pnpm');
+    mkdirSync(path.join(store, '@prisma+client@7.10.0_a'), { recursive: true });
+    mkdirSync(path.join(store, '@prisma+client@7.10.0_b'), { recursive: true });
+
+    const failing = spawnSync('node', [script], { cwd: repo, encoding: 'utf8' });
+    expect(failing.status).toBe(1);
+    expect(failing.stderr).toContain(
+      'hygiene: @prisma/client is installed 2 times (@prisma+client@7.10.0_a, @prisma+client@7.10.0_b)',
+    );
+
+    rmSync(path.join(store, '@prisma+client@7.10.0_b'), { recursive: true });
+
+    const passing = spawnSync('node', [script], { cwd: repo, encoding: 'utf8' });
+    expect(passing.status).toBe(0);
+    expect(passing.stdout).toBe('hygiene: ok (0 tracked files, single copies ok)\n');
+  });
 });

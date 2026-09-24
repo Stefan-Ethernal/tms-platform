@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   CLAUDE_MD_MAX_LINES,
   claudeMdLineCount,
+  findDuplicateCopies,
   findForbiddenDocuments,
   runHygiene,
 } from './check-hygiene.mjs';
@@ -67,6 +68,39 @@ describe('findForbiddenDocuments', () => {
   });
 });
 
+describe('findDuplicateCopies', () => {
+  it('accepts one store directory per watched package and packages not installed yet', () => {
+    const entries = [
+      '@nestjs+common@12.1.0_reflect-metadata@0.2.2_rxjs@7.8.2',
+      '@nestjs+core@12.1.0_@nestjs+common@12.1.0_reflect-metadata@0.2.2_rxjs@7.8.2',
+      'lock.yaml',
+      'node_modules',
+    ];
+    expect(findDuplicateCopies(entries)).toEqual([]);
+  });
+
+  it('reports a package that pnpm installed with two peer sets', () => {
+    const entries = ['@nestjs+core@12.1.0_rxjs@7.8.2_a', '@nestjs+core@12.1.0_rxjs@7.8.2_b'];
+    expect(findDuplicateCopies(entries)).toEqual([
+      {
+        name: '@nestjs/core',
+        copies: ['@nestjs+core@12.1.0_rxjs@7.8.2_a', '@nestjs+core@12.1.0_rxjs@7.8.2_b'],
+      },
+    ]);
+  });
+
+  it('does not count packages that only share a name prefix', () => {
+    const entries = [
+      '@nestjs-cls+transactional@4.0.0_x',
+      '@nestjs-cls+transactional-adapter-prisma@2.0.0_x',
+      '@prisma+client@7.10.0_y',
+      '@prisma+client-runtime-utils@7.10.0',
+      'nestjs-cls@7.0.0_z',
+    ];
+    expect(findDuplicateCopies(entries)).toEqual([]);
+  });
+});
+
 describe('claudeMdLineCount', () => {
   it('does not count a trailing newline as an extra line', () => {
     expect(claudeMdLineCount('a\nb\nc\n')).toBe(3);
@@ -110,5 +144,20 @@ describe('runHygiene', () => {
     expect(problems).toEqual([
       'tracked file under docs/client/ (must stay untracked): docs/client/a.pdf',
     ]);
+  });
+
+  it('reports duplicate copies found in node_modules/.pnpm', () => {
+    const problems = runHygiene({
+      trackedFiles: [],
+      claudeMd: '',
+      pnpmStoreEntries: ['@prisma+client@7.10.0_a', '@prisma+client@7.10.0_b'],
+    });
+    expect(problems).toEqual([
+      '@prisma/client is installed 2 times (@prisma+client@7.10.0_a, @prisma+client@7.10.0_b); align versions and peers so one copy remains',
+    ]);
+  });
+
+  it('skips the single-copy check without node_modules/.pnpm', () => {
+    expect(runHygiene({ trackedFiles: [], claudeMd: '', pnpmStoreEntries: null })).toEqual([]);
   });
 });

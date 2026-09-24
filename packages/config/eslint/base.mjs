@@ -1,3 +1,4 @@
+import { createRequire } from 'node:module';
 import path from 'node:path';
 import js from '@eslint/js';
 import tseslint from 'typescript-eslint';
@@ -7,6 +8,11 @@ import { defineConfig, globalIgnores } from 'eslint/config';
 
 /** Repository root, derived from this file's real location (packages/config/eslint). */
 export const repoRoot = path.resolve(import.meta.dirname, '..', '..', '..');
+
+// eslint-module-utils loads resolvers by require() from the linted file's location, then from its
+// own pnpm virtual-store path; neither can see packages/config/node_modules, so the resolver is
+// passed by absolute path.
+const tsResolver = createRequire(import.meta.url).resolve('eslint-import-resolver-typescript');
 
 export const ignores = globalIgnores([
   '**/dist/**',
@@ -20,7 +26,9 @@ export const ignores = globalIgnores([
 ]);
 
 /**
- * Dependency rule from the spec (section 3): contracts <- db <- domain <- apps.
+ * Dependency rule from the spec (section 3): contracts <- db <- domain <- apps, plus
+ * contracts, db, logger <- bootstrap <- api for the shared Nest bootstrap (phase 1 plan). Apps are
+ * two element types: `api` (NestJS, apps/api-*) and `web` (React SPAs, apps/web-*).
  * eslint-plugin-boundaries v7: element patterns are folder patterns (no file part), and
  * `capture` names one entry per wildcard. Paths are matched relative to `rootPath`, so the same
  * configuration works when eslint runs inside any workspace package.
@@ -31,10 +39,13 @@ export function boundariesConfig(rootPath) {
   return {
     plugins: { boundaries },
     settings: {
-      // eslint-plugin-boundaries resolves relative import specifiers through
-      // eslint-import-resolver-node, whose default extensions are .js/.json/.node; without .ts
-      // here it cannot resolve extensionless relative imports and silently reports no dependency.
-      'import/resolver': { node: { extensions: ['.js', '.json', '.ts', '.tsx'] } },
+      // eslint-import-resolver-typescript (unrs-resolver) reads package.json `exports` and
+      // realpaths pnpm's node_modules symlinks, so an `@tms/*` specifier resolves to the imported
+      // package's own files and counts as a local dependency. It replaces the node resolver
+      // instead of joining it: ESLint deep-merges settings, the node resolver would be tried
+      // first, and its un-realpathed node_modules path makes the plugin treat the import as
+      // external, i.e. unchecked.
+      'import/resolver': { [tsResolver]: {} },
       'boundaries/root-path': rootPath,
       'boundaries/elements': [
         { type: 'contracts', pattern: 'packages/contracts' },
@@ -43,7 +54,9 @@ export function boundariesConfig(rootPath) {
         { type: 'logger', pattern: 'packages/logger' },
         { type: 'domain', pattern: 'packages/domain' },
         { type: 'ui', pattern: 'packages/ui' },
-        { type: 'app', pattern: 'apps/*', capture: ['app'] },
+        { type: 'bootstrap', pattern: 'packages/nest-bootstrap' },
+        { type: 'api', pattern: 'apps/api-*', capture: ['name'] },
+        { type: 'web', pattern: 'apps/web-*', capture: ['name'] },
       ],
     },
     rules: {
@@ -59,7 +72,9 @@ export function boundariesConfig(rootPath) {
             policy('logger', ['contracts']),
             policy('domain', ['contracts', 'db', 'auth-core', 'logger']),
             policy('ui', ['contracts']),
-            policy('app', ['contracts', 'db', 'auth-core', 'logger', 'domain', 'ui']),
+            policy('bootstrap', ['contracts', 'db', 'logger']),
+            policy('api', ['contracts', 'db', 'auth-core', 'logger', 'domain', 'bootstrap']),
+            policy('web', ['contracts', 'ui']),
           ],
         },
       ],
