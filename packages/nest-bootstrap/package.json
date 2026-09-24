@@ -22,6 +22,9 @@
     "test": "NODE_OPTIONS='--experimental-vm-modules --no-warnings=ExperimentalWarning' jest"
   },
   "dependencies": {
+    "@nestjs/terminus": "catalog:",
+    "@tms/contracts": "workspace:*",
+    "@tms/db": "workspace:*",
     "@tms/logger": "workspace:*",
     "zod": "catalog:"
   },
@@ -37,6 +40,7 @@
     "@nestjs/core": "catalog:",
     "@nestjs/platform-express": "catalog:",
     "@nestjs/testing": "catalog:",
+    "@testcontainers/postgresql": "catalog:",
     "@tms/config": "workspace:*",
     "@types/jest": "catalog:",
     "@types/node": "catalog:",

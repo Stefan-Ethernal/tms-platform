@@ -28,6 +28,7 @@
     "@nestjs/schematics": "catalog:",
     "@nestjs/testing": "catalog:",
     "@tms/config": "workspace:*",
+    "@tms/db": "workspace:*",
     "@types/express": "catalog:",
     "@types/jest": "catalog:",
     "@types/node": "catalog:",
