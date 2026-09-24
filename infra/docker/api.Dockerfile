@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1.7
 ARG APP
-FROM node:24-bookworm-slim AS build
+FROM node:25-bookworm-slim AS build
 ARG APP
 WORKDIR /repo
 # pnpm version from package.json#packageManager, the single place it is pinned.
@@ -12,7 +12,7 @@ RUN --mount=type=cache,id=pnpm-store,target=/root/.local/share/pnpm/store \
 RUN pnpm --filter "@tms/${APP}" build \
  && pnpm --filter "@tms/${APP}" deploy --legacy --prod /out
 
-FROM node:24-bookworm-slim AS runtime
+FROM node:25-bookworm-slim AS runtime
 ENV NODE_ENV=production
 WORKDIR /app
 COPY --from=build /out .
