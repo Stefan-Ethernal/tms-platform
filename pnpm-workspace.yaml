@@ -1,6 +1,7 @@
 packages:
   - apps/*
   - packages/*
+  - e2e
 
 # pnpm 12 reads only auth and registry keys from .npmrc, so settings live here.
 engineStrict: true
@@ -48,6 +49,7 @@ catalog:
   '@testing-library/react': ^16.3.3
   '@testing-library/dom': ^10.4.2
   msw: ^2.15.0
+  '@playwright/test': ^1.63.0
   # data
   prisma: ^7.10.0
 
