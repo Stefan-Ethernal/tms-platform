@@ -4,14 +4,14 @@ import { existsSync } from 'node:fs';
 import path from 'node:path';
 import { readStdinJson } from './lib/stdin.mjs';
 import { shouldFormat } from './lib/format.mjs';
-import { projectRoot } from './lib/project-root.mjs';
+import { projectRoot, sessionRoot } from './lib/project-root.mjs';
 
 const input = await readStdinJson();
-const root = projectRoot(input);
 const filePath = input.tool_input?.file_path;
 if (!filePath) process.exit(0);
+const root = projectRoot(input, filePath);
 
-const abs = path.resolve(root, filePath);
+const abs = path.resolve(sessionRoot(input), filePath);
 const rel = path.relative(root, abs);
 if (rel.startsWith('..') || !shouldFormat(rel) || !existsSync(abs)) process.exit(0);
 

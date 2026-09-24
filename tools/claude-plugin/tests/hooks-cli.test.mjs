@@ -2,7 +2,8 @@ import { execFileSync, spawnSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it } from 'vitest';
+import { createWorktreeFixture } from './support/worktrees.mjs';
 
 const repoRoot = path.resolve(import.meta.dirname, '../../..');
 const hooks = path.resolve(repoRoot, 'tools/claude-plugin/ethernal-nest-react/hooks');
@@ -54,6 +55,32 @@ describe('protect-files.mjs', () => {
       { CLAUDE_PROJECT_DIR: '/work/p' },
     );
     expect(r.status).toBe(2);
+  });
+  describe('in a session started in the main checkout (9-M1)', () => {
+    let fx;
+    beforeAll(() => {
+      fx = createWorktreeFixture();
+    });
+    const edit = (file) =>
+      run('protect-files.mjs', {
+        tool_name: 'Write',
+        tool_input: { file_path: file },
+        cwd: fx.main,
+      });
+
+    it.each([
+      ['a sibling worktree .env', (f) => path.join(f.sibling, '.env')],
+      ['sibling worktree client docs', (f) => path.join(f.sibling, 'docs/client/x.md')],
+      ['client docs in a nested worktree', (f) => path.join(f.nested, 'docs/client/x.md')],
+      ['an env file in a new directory', (f) => path.join(f.sibling, 'new/deeper/.env.local')],
+    ])('blocks %s', (_name, file) => {
+      expect(edit(file(fx)).status).toBe(2);
+    });
+
+    it('allows ordinary files in a worktree and leaves unrelated repositories alone', () => {
+      expect(edit(path.join(fx.sibling, 'apps/a.ts')).status).toBe(0);
+      expect(edit(path.join(fx.foreign, '.env')).status).toBe(0);
+    });
   });
   it('exits 0 on malformed input instead of blocking everything', () => {
     const r = spawnSync('node', [path.join(hooks, 'protect-files.mjs')], {
