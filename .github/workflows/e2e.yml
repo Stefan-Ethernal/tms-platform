@@ -33,7 +33,7 @@ jobs:
         run: infra/smoke.sh --full
       - name: Migrate image budget
         env:
-          # /app of tms-migrate measured in Task 09 plus 10 %; raise it only with a reason in the PR.
+          # budget measured for this image's /app plus 10 %; raise it only with a reason in the PR.
           MIGRATE_APP_MAX_BYTES: '355000000'
         run: |
           size=$(docker run --rm --entrypoint du tms-migrate -sb /app | cut -f1)
