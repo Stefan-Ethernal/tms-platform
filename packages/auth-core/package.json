@@ -1,0 +1,32 @@
+{
+  "name": "@tms/auth-core",
+  "version": "0.0.0",
+  "private": true,
+  "type": "commonjs",
+  "description": "Nest-free, Prisma-free authentication algorithms and ports: tokens, secret cipher, password hashing and policy, TOTP, recovery codes, lockout/session/step-up policies",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "NODE_OPTIONS='--experimental-vm-modules --no-warnings=ExperimentalWarning' jest"
+  },
+  "devDependencies": {
+    "@tms/config": "workspace:*",
+    "@types/jest": "catalog:",
+    "@types/node": "catalog:",
+    "eslint": "catalog:",
+    "fast-check": "catalog:",
+    "jest": "catalog:",
+    "ts-jest": "catalog:",
+    "typescript": "catalog:nest-ts6"
+  }
+}
