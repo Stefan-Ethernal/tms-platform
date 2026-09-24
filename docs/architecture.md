@@ -67,13 +67,13 @@ subpaths (`./security`, `./audit`) are the only deep imports the exports map all
 
 ## Environments
 
-|            | Development                          | Compose `full` / production                         |
-| ---------- | ------------------------------------ | --------------------------------------------------- |
-| SPA        | Vite dev server :5173 / :5174        | static files served by Caddy                        |
-| `/api`     | Vite `server.proxy` to :3001 / :3002 | Caddy `reverse_proxy` to the API container          |
-| Database   | compose `postgres`                   | compose `postgres` (volume `pgdata`)                |
-| Migrations | `pnpm dev` → `predev`                | `migrate` one-shot, apps wait for it                |
-| Email      | Mailpit :8025                        | compose `full`: Mailpit · production: SMTP from env |
+|            | Development                                             | Compose `full` / production                         |
+| ---------- | ------------------------------------------------------- | --------------------------------------------------- |
+| SPA        | Vite dev server :5173 / :5174                           | static files served by Caddy                        |
+| `/api`     | Vite `server.proxy` to :3001 / :3002                    | Caddy `reverse_proxy` to the API container          |
+| Database   | compose `postgres`                                      | compose `postgres` (volume `pgdata`)                |
+| Migrations | `pnpm dev` → `predev` (deploy, drift check, sync, seed) | `migrate` one-shot, apps wait for it                |
+| Email      | Mailpit :8025                                           | compose `full`: Mailpit · production: SMTP from env |
 
 ## Data model — phase 1 (ERD mirrors `schema.prisma`)
 

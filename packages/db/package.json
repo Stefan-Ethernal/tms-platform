@@ -7,7 +7,8 @@
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "bin": {
-    "tms-sync-permissions": "dist/cli/sync-permissions.js"
+    "tms-sync-permissions": "dist/cli/sync-permissions.js",
+    "tms-seed": "dist/cli/seed.js"
   },
   "exports": {
     ".": {
@@ -41,6 +42,8 @@
     "db:migrate:status": "prisma migrate status",
     "db:drift": "prisma migrate status && prisma migrate diff --from-config-datasource --to-schema prisma/schema.prisma --exit-code",
     "db:sync": "node dist/cli/sync-permissions.js",
+    "db:seed": "prisma db seed",
+    "db:setup": "node dist/cli/dev-setup.js",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "NODE_OPTIONS='--experimental-vm-modules --no-warnings=ExperimentalWarning' jest"

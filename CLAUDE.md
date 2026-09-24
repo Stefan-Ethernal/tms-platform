@@ -24,8 +24,9 @@ typescript-eslint its own classic compiler. Remove both workarounds once 7.1 shi
 
 - `pnpm install` — also installs husky hooks; copy `infra/.env.example` and `packages/db/.env.example` to `.env` once
 - `pnpm compose up -d --build && infra/smoke.sh` — postgres, mailpit, migrate
-- `pnpm dev` — `predev` applies migrations; api-admin :3001, api-driver :3002, web-admin :5173,
-  web-driver :5174 (Vite proxies `/api`)
+- `pnpm dev` — `predev` deploys migrations, checks drift, syncs permissions and seeds (needs
+  `BOOTSTRAP_ADMIN_EMAIL` in `packages/db/.env` on an empty database); api-admin :3001,
+  api-driver :3002, web-admin :5173, web-driver :5174 (Vite proxies `/api`)
 - `pnpm verify` — lint, typecheck, tests, build, format check, hygiene, gitleaks. Run before every PR.
 - `pnpm turbo run <task> --filter=<package>` — scoped runs (this form is allowlisted; `pnpm --filter` is not)
 - `pnpm compose --profile full up -d --build && infra/smoke.sh --full && pnpm e2e` — production-like

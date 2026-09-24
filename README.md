@@ -24,10 +24,17 @@ end of the POC).
 ```bash
 pnpm install                                   # installs dependencies and git hooks
 cp infra/.env.example infra/.env
-cp packages/db/.env.example packages/db/.env
+cp packages/db/.env.example packages/db/.env   # set BOOTSTRAP_ADMIN_EMAIL to your address
 pnpm compose up -d --build && infra/smoke.sh   # postgres :5432, mailpit :8025, migrations applied
-pnpm dev                                       # api-admin :3001, api-driver :3002, web-admin :5173, web-driver :5174
+pnpm dev                                       # predev: migrate deploy, drift check, permission sync, seed;
+                                               # then api-admin :3001, api-driver :3002, web-admin :5173, web-driver :5174
 ```
+
+`predev` is idempotent and create-only: it deploys pending migrations, fails with a hint if
+`schema.prisma` changed without a migration (`pnpm turbo run db:migrate:dev --filter=@tms/db -- --name <change>`),
+synchronises the permission catalogue and seeds the system roles (Admin, Operator, Driver), five
+products, eight loading points and one INVITED bootstrap administrator (`BOOTSTRAP_ADMIN_EMAIL`,
+username `admin`). Rows an administrator edited later are never overwritten. Phase 2 adds the invite email.
 
 Production-like stack (Caddy on one origin per app): `pnpm compose --profile full up -d --build`,
 then `infra/smoke.sh --full` and `pnpm e2e`. Admin at http://localhost:8080, kiosk at
@@ -59,4 +66,5 @@ stack. Every pull request records what was actually verified (see the PR templat
 
 ## Status
 
-Phase 0 (bootstrap) complete. Next: phase 1 (contracts, database schema, logger, audit, health).
+Phase 0 (bootstrap) complete. Phase 1 (foundation) in progress: contracts, schema, permission sync and
+seed landed; logger, health, Sentry and the shared domain module follow.

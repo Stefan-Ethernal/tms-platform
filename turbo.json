@@ -22,6 +22,11 @@
       "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/infra/docker-compose.yml"]
     },
     "dev": { "cache": false, "persistent": true, "dependsOn": ["^build", "generate"] },
+    "db:setup": {
+      "cache": false,
+      "dependsOn": ["build"],
+      "passThroughEnv": ["DATABASE_URL", "BOOTSTRAP_ADMIN_EMAIL", "BOOTSTRAP_ADMIN_USERNAME"]
+    },
     "db:validate": { "cache": false },
     "db:migrate:dev": {
       "cache": false,
