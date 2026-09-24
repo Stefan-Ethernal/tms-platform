@@ -1,0 +1,92 @@
+name: tms
+
+# In-network connection string, spelled once. The same user, password default and database live in
+# infra/.env.example, packages/db/.env.example and the db-drift job of .github/workflows/ci.yml.
+x-database-url: &database-url postgresql://tms:${POSTGRES_PASSWORD:-tms}@postgres:5432/tms
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: tms
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-tms}
+      POSTGRES_DB: tms
+    # Postgres and Mailpit publish on loopback only: dev credentials and mail stay off the LAN.
+    ports:
+      - '127.0.0.1:${POSTGRES_PORT:-5432}:5432'
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U tms -d tms']
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
+  mailpit:
+    image: axllent/mailpit:v1.31
+    ports: # loopback only, like postgres
+      - '127.0.0.1:${MAILPIT_UI_PORT:-8025}:8025'
+      - '127.0.0.1:${MAILPIT_SMTP_PORT:-1025}:1025'
+    healthcheck:
+      test: ['CMD', '/mailpit', 'readyz']
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
+  # One-shot: applies migrations (phase 1 adds the permission sync). Never runs inside an app (D12).
+  migrate:
+    build:
+      context: ..
+      dockerfile: infra/docker/migrate.Dockerfile
+    environment:
+      DATABASE_URL: *database-url
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: 'no'
+
+  api-admin:
+    profiles: [full]
+    build:
+      context: ..
+      dockerfile: infra/docker/api.Dockerfile
+      args:
+        APP: api-admin
+    environment:
+      NODE_ENV: production
+      PORT: '3001'
+      DATABASE_URL: *database-url
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+  api-driver:
+    profiles: [full]
+    build:
+      context: ..
+      dockerfile: infra/docker/api.Dockerfile
+      args:
+        APP: api-driver
+    environment:
+      NODE_ENV: production
+      PORT: '3002'
+      DATABASE_URL: *database-url
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+  # Single origin per application (D11): serves the SPA and forwards /api to its API.
+  caddy:
+    profiles: [full]
+    build:
+      context: ..
+      dockerfile: infra/docker/web.Dockerfile
+    ports:
+      - '${CADDY_ADMIN_PORT:-8080}:8080'
+      - '${CADDY_KIOSK_PORT:-8081}:8081'
+    depends_on:
+      - api-admin
+      - api-driver
+
+volumes:
+  pgdata:

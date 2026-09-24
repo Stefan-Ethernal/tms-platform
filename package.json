@@ -14,7 +14,8 @@
     "test": "turbo run test",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "verify": "turbo run lint typecheck test build && pnpm format:check"
+    "verify": "turbo run lint typecheck test build && pnpm format:check",
+    "compose": "docker compose -f infra/docker-compose.yml"
   },
   "devDependencies": {
     "eslint": "catalog:",

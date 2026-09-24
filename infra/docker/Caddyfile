@@ -1,0 +1,29 @@
+{
+	auto_https off
+	admin off
+}
+
+# Single origin per application (D11): the SPA, with /api and /api/* forwarded to its API.
+# Arguments: <API upstream> <SPA root>. Both sites import this, so they cannot drift apart.
+(spa_with_api) {
+	encode gzip
+	@api path /api /api/*
+	handle @api {
+		reverse_proxy {args[0]}
+	}
+	handle {
+		root * {args[1]}
+		try_files {path} /index.html
+		file_server
+	}
+}
+
+# Back-office: SPA + /api -> api-admin
+:8080 {
+	import spa_with_api api-admin:3001 /srv/web-admin
+}
+
+# Kiosk: SPA + /api -> api-driver
+:8081 {
+	import spa_with_api api-driver:3002 /srv/web-driver
+}

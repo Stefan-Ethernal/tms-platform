@@ -15,3 +15,12 @@ updates:
     directory: /
     schedule:
       interval: weekly
+  - package-ecosystem: docker
+    directory: /infra/docker
+    schedule:
+      interval: weekly
+  # Service images in infra/docker-compose.yml (postgres, mailpit); `docker` reads Dockerfiles only.
+  - package-ecosystem: docker-compose
+    directory: /infra
+    schedule:
+      interval: weekly

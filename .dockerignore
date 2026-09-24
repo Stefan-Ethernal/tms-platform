@@ -1,0 +1,15 @@
+.git
+node_modules
+**/node_modules
+**/dist
+**/coverage
+**/.turbo
+**/generated
+.cache
+docs
+.superpowers
+**/playwright-report
+**/test-results
+**/.env
+**/.env.*
+!**/.env.example
