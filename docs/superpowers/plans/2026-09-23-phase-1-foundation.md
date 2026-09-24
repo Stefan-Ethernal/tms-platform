@@ -50,7 +50,7 @@ Inputs the spec implies but that need explicit tests (each pinned to the owning 
 
 ## Execution notes (apply to every task)
 
-- **One task = one PR** on branch `phase-1/NN-<slug>` from `main`, opened with the `pr` skill after `pnpm verify`; the PR title is the task's commit header. The stack merges in order (squash). The phase 0 stack (PRs #2–#11) landed on `main` on 2026-09-24 (`cc47fec`); every phase 1 branch starts from that `main` or later.
+- **One task = one PR** on branch `phase-1/NN-<slug>` from the previous task's branch (from `main` for Task 01), opened with the `pr` skill after `pnpm verify`; the PR title is the task's commit header. The stack merges in order (squash); after a PR is squash-merged, the next branch is rebased onto `main` with `git rebase --onto origin/main <old-base>`. The phase 0 stack (PRs #2–#11) landed on `main` on 2026-09-24 (`cc47fec`); every phase 1 branch starts from that `main` or later.
 - **Journal as you go**: every task's Commit step also appends its row (date, task, approach, start, end, rework, notes) to `docs/efficiency/critical-path.md` and includes that file in the commit. Do not batch rows at the end.
 - **Scoped runs**: `pnpm turbo run <task> --filter=<package>`, one task per command (`pnpm --filter a b c` passes `b c` as arguments to `a`). Whole-repo: `pnpm verify`.
 - **Databases in verification steps**: unit and API tests use the Testcontainers harness (Task 04) and need Docker. Manual checks use a throwaway container, never the compose project `tms`: `docker network create tms-p1-net && docker run -d --name tms-p1-pg --network tms-p1-net -p 55432:5432 -e POSTGRES_USER=tms -e POSTGRES_PASSWORD=tms -e POSTGRES_DB=tms postgres:18-alpine` (clean up with `docker rm -f tms-p1-pg && docker network rm tms-p1-net`). Compose, where a task needs it, runs as project `tms-p1` with alternate ports: `POSTGRES_PORT=55432 MAILPIT_UI_PORT=58025 MAILPIT_SMTP_PORT=51025 CADDY_ADMIN_PORT=58080 CADDY_KIOSK_PORT=58081 pnpm compose -p tms-p1 ...` and `COMPOSE_PROJECT_NAME=tms-p1` plus the same variables for `infra/smoke.sh`.
@@ -113,7 +113,7 @@ Dependencies: 03 needs 02; 04 → 05 → 06 → 07 → 08 → 09 is a chain; 10 
 | Env variables | 08, 10, 11, 12, 13 | `BOOTSTRAP_ADMIN_EMAIL`, `BOOTSTRAP_ADMIN_USERNAME`, `HOST`, `LOG_LEVEL`, `LOG_FILE_ENABLED`, `LOG_DIR`, `LOG_RETENTION_DAYS`, `DATABASE_URL`, `HEALTH_DB_TIMEOUT_MS`, `SENTRY_DSN`, `SENTRY_ENVIRONMENT`, `SENTRY_RELEASE` (phase 0: `NODE_ENV`, `PORT`); build argument `GIT_SHA` (13); CI `MIGRATE_APP_MAX_BYTES` (09) |
 | further `@tms/contracts` names: `PrismaEnumName`, `<Name>Schema` + type per enum, `EmailSchema`, `Email`, `AUTH_AUDIT_ACTIONS`, `ADMIN_AUDIT_ACTIONS`, `OPS_AUDIT_ACTIONS`, `CHECKIN_AUDIT_ACTIONS`, `SYSTEM_AUDIT_ACTIONS`, `SENSITIVE_KEY_TOKENS`, `CIRCULAR`, `MAX_DEPTH_REACHED`, `ScrubOptions` | `@tms/contracts` (03) | `scrubString`/`scrubUrl` keep bracketed markers (`[REDACTED]`, `[Filtered]`) whole |
 | ESLint element types `bootstrap`, `api`, `web` | `packages/config/eslint/base.mjs` (02) | `bootstrap → contracts, db, logger`; `api` (`apps/api-*`) → `contracts, db, auth-core, logger, domain, bootstrap`; `web` (`apps/web-*`) → `contracts, ui` |
-| `SINGLE_COPY_PACKAGES`, `findDuplicateCopies(storeEntries, packages?)`, `runHygiene({ trackedFiles, claudeMd, pnpmStoreEntries? })` | `tools/scripts/check-hygiene.mjs` (02) | one `node_modules/.pnpm` directory each for `@nestjs/common`, `@nestjs/core`, `nestjs-cls`, `@nestjs-cls/transactional`, `@prisma/client` |
+| `SINGLE_COPY_PACKAGES`, `findDuplicateCopies(storeEntries, packages?)`, `runHygiene({ trackedFiles, claudeMd, pnpmStoreEntries? })` | `tools/scripts/check-hygiene.mjs` (02) | one snapshot key in `node_modules/.pnpm/lock.yaml` each for `@nestjs/common`, `@nestjs/core`, `nestjs-cls`, `@nestjs-cls/transactional`, `@prisma/client` |
 | `PrismaModule`, `PrismaService` | `@tms/db/nest` (12) | `PrismaModule.forRoot({ url, connectTimeoutMs? })` (global), `PrismaService extends PrismaClient` (a proxy: never `instanceof`); `@nestjs/common`, `reflect-metadata`, `rxjs` optional peers |
 | `registerSmokeSuite({ name, title, service })` | `e2e/tests/support/smoke.ts` (12) | Playwright smoke per origin, asserts the health `service` |
 
@@ -1259,10 +1259,14 @@ Expected: `git status` prints nothing for `packages/db`; the container and netwo
 
 - [ ] **Step 11: Documentation**
 
-`README.md`: replace line 11 with
+`README.md`: insert `; `engines` enforces it` after `` `.nvmrc` `` in the existing Prerequisites bullet,
+so it reads:
 
 ```md
-- Node 26 (`.nvmrc`; `engines` enforces it), pnpm 12.5.1 (`corepack enable` picks it from `packageManager`)
+- Node 26 (`.nvmrc`; `engines` enforces it) and the pnpm version pinned in
+  `package.json#packageManager`. Node 26 no longer ships corepack, so install it from the
+  repository root, as the Dockerfiles do:
+  `npm install -g "$(node -p "require('./package.json').packageManager")"`
 ```
 
 `CLAUDE.md`: replace lines 50–51 (keeps the line count, so Task 03's "after line 53" still holds; 40–41 before `main` 0d5f4ac grew the Stack section by ten lines):
