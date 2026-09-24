@@ -418,8 +418,10 @@ PR description (`.github/pull_request_template.md`, filled by the `pr` skill):
 - **What and why**: 2–4 sentences.
 - **Diagram** (Mermaid when it explains better than text): sequence, flowchart, erDiagram, block.
 - **Affected boundaries**: packages/apps, public interfaces, migration (yes/no, reversible).
-- **Verification**: backend table `scenario | layer | outcome` with actual results; frontend steps
-  executed in `claude --chrome` + 2–4 screenshots.
+- **Verification plan**: what will be run — `pnpm verify`, the scenarios and CI jobs, and for
+  frontend changes the `claude --chrome` steps planned.
+- **Verification results**: backend table `scenario | layer | outcome` with actual results;
+  frontend steps executed in `claude --chrome` + 2–4 screenshots.
 - **Risks and notes**: uncovered areas, follow-ups, ADR candidates.
 
 Out of scope for the POC: axe, k6, Stryker.
