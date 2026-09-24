@@ -23,7 +23,8 @@
     "@node-rs/argon2": "catalog:",
     "@zxcvbn-ts/core": "catalog:",
     "@zxcvbn-ts/language-common": "catalog:",
-    "@zxcvbn-ts/language-en": "catalog:"
+    "@zxcvbn-ts/language-en": "catalog:",
+    "otplib": "catalog:"
   },
   "devDependencies": {
     "@tms/config": "workspace:*",
