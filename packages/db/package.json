@@ -30,6 +30,7 @@
     "prisma.config.ts"
   ],
   "scripts": {
+    "generate": "prisma generate",
     "build": "tsc -p tsconfig.build.json",
     "db:validate": "prisma validate",
     "db:migrate:dev": "prisma migrate dev",
@@ -41,7 +42,11 @@
     "test": "NODE_OPTIONS='--experimental-vm-modules --no-warnings=ExperimentalWarning' jest"
   },
   "dependencies": {
+    "@prisma/adapter-pg": "catalog:",
+    "@prisma/client": "catalog:",
+    "@tms/contracts": "workspace:*",
     "dotenv": "catalog:",
+    "pg": "catalog:",
     "prisma": "catalog:"
   },
   "devDependencies": {
@@ -52,7 +57,6 @@
     "@types/pg": "catalog:",
     "eslint": "catalog:",
     "jest": "catalog:",
-    "pg": "catalog:",
     "testcontainers": "catalog:",
     "ts-jest": "catalog:",
     "typescript": "catalog:nest-ts6"

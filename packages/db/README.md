@@ -10,3 +10,8 @@ scripts through turbo, which passes `DATABASE_URL` through, e.g.
 globalTeardown: one Postgres container per run, `tms_template` migrated once, one clone per Jest
 worker. Tests use `testDatabaseUrl()`, `resetTestDatabase()` (in `beforeEach`) and
 `withAdminClient(fn)`; they never read `DATABASE_URL`. Docker must be running.
+
+The Prisma client is generated into `src/generated/prisma` (gitignored) by `pnpm turbo run generate --filter=@tms/db`;
+`lint`, `typecheck`, `test` and `build` depend on that task, so a clean checkout needs no manual step.
+Applications obtain a client only through `createPrismaClient({ url })` from `@tms/db`.
+Row builders for tests (`makeRole`, `makeStaffUser`, …) come from `@tms/db/testing`; only tests import that subpath.
