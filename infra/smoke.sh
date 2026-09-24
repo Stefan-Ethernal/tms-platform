@@ -98,6 +98,20 @@ if [ "${1:-}" = "--full" ]; then
   }
   check_origin web-admin "${CADDY_ADMIN_PORT:-8080}" "TMS Admin"
   check_origin web-driver "${CADDY_KIOSK_PORT:-8081}" "TMS Kiosk"
+
+  # D14: each API writes JSON log files into the shared `logs` volume, one directory per app.
+  check_log_file() { # service
+    local file=""
+    for _ in $(seq 1 10); do
+      file=$(compose exec -T "$1" sh -c "ls /var/log/tms/$1/*.log 2>/dev/null | head -1")
+      [ -n "$file" ] && break
+      sleep 1
+    done
+    [ -n "$file" ] || fail "$1: no log file under /var/log/tms/$1"
+    echo "ok   $1 writes $file"
+  }
+  check_log_file api-admin
+  check_log_file api-driver
 fi
 
 echo "smoke: all checks passed"

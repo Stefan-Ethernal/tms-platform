@@ -67,6 +67,14 @@ services:
       NODE_ENV: production
       PORT: '3001'
       DATABASE_URL: *database-url
+      LOG_DIR: /var/log/tms
+      LOG_FILE_ENABLED: 'true'
+    # Read-only root filesystem (deviation 10); the writable paths are the logs volume and /tmp.
+    read_only: true
+    tmpfs:
+      - /tmp
+    volumes:
+      - logs:/var/log/tms
     depends_on:
       migrate:
         condition: service_completed_successfully
@@ -82,6 +90,13 @@ services:
       NODE_ENV: production
       PORT: '3002'
       DATABASE_URL: *database-url
+      LOG_DIR: /var/log/tms
+      LOG_FILE_ENABLED: 'true'
+    read_only: true
+    tmpfs:
+      - /tmp
+    volumes:
+      - logs:/var/log/tms
     depends_on:
       migrate:
         condition: service_completed_successfully
@@ -101,3 +116,6 @@ services:
 
 volumes:
   pgdata:
+  # D14: both APIs write LOG_DIR/<app>/<app>.<date>.<n>.log here; per-app directories keep
+  # pino-roll's retention from deleting the other app's files (deviation 7).
+  logs:

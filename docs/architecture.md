@@ -31,10 +31,13 @@ flowchart TB
 ```
 
 Two NestJS processes share `contracts`, `db`, `auth-core` and `domain` through workspace packages
-(ADR-0001). Each SPA and its API sit behind one origin: Caddy in compose, Vite's dev proxy locally
-(D11). Migrations run only in the one-shot `migrate` service or `predev`, never in an app (D12). In
-production the kiosk origin runs on an isolated terminal network; the compose stack serves both
-origins from one Caddy container on one Docker network.
+(ADR-0001). Both APIs boot through `@tms/nest-bootstrap` (ADR-0008): a zod-validated environment
+before Nest starts, the `/api` prefix, shutdown hooks and the pino logger, so each app is `main.ts`
+plus its `AppModule`; they listen on `127.0.0.1` in development and on `0.0.0.0` in containers
+(`HOST` overrides). Each SPA and its API sit behind one origin: Caddy in compose, Vite's dev proxy
+locally (D11). Migrations run only in the one-shot `migrate` service or `predev`, never in an app
+(D12). In production the kiosk origin runs on an isolated terminal network; the compose stack
+serves both origins from one Caddy container on one Docker network.
 
 ## Dependency rule
 
@@ -73,6 +76,7 @@ subpaths (`./security`, `./audit`) are the only deep imports the exports map all
 | `/api`     | Vite `server.proxy` to :3001 / :3002                    | Caddy `reverse_proxy` to the API container               |
 | Database   | compose `postgres`                                      | compose `postgres` (volume `pgdata`)                     |
 | Migrations | `pnpm dev` → `predev` (deploy, drift check, sync, seed) | `migrate` one-shot: deploy, sync, seed; apps wait for it |
+| Logs       | stdout + `apps/api-*/logs/<app>/` (`LOG_DIR`)           | stdout + volume `logs` at `/var/log/tms/<app>/`          |
 | Email      | Mailpit :8025                                           | compose `full`: Mailpit · production: SMTP from env      |
 
 ## Data model — phase 1 (ERD mirrors `schema.prisma`)

@@ -1,39 +1,50 @@
 {
-  "name": "@tms/api-admin",
+  "name": "@tms/nest-bootstrap",
   "version": "0.0.0",
   "private": true,
-  "description": "Back-office API (admin and operator) of the TMS platform",
+  "type": "commonjs",
+  "description": "Typed environment, application setup and bootstrap shared by both TMS NestJS APIs",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
   "files": [
     "dist"
   ],
   "scripts": {
-    "build": "nest build",
-    "dev": "nest start --watch --exec \"node --env-file-if-exists=.env\"",
-    "start": "node --env-file-if-exists=.env dist/main.js",
+    "build": "tsc -p tsconfig.build.json",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "NODE_OPTIONS='--experimental-vm-modules --no-warnings=ExperimentalWarning' jest"
   },
   "dependencies": {
+    "@tms/logger": "workspace:*",
+    "zod": "catalog:"
+  },
+  "peerDependencies": {
     "@nestjs/common": "catalog:",
     "@nestjs/core": "catalog:",
     "@nestjs/platform-express": "catalog:",
-    "@tms/nest-bootstrap": "workspace:*",
     "reflect-metadata": "catalog:",
-    "rxjs": "catalog:",
-    "zod": "catalog:"
+    "rxjs": "catalog:"
   },
   "devDependencies": {
-    "@nestjs/cli": "catalog:",
-    "@nestjs/schematics": "catalog:",
+    "@nestjs/common": "catalog:",
+    "@nestjs/core": "catalog:",
+    "@nestjs/platform-express": "catalog:",
     "@nestjs/testing": "catalog:",
     "@tms/config": "workspace:*",
-    "@types/express": "catalog:",
     "@types/jest": "catalog:",
     "@types/node": "catalog:",
     "@types/supertest": "catalog:",
     "eslint": "catalog:",
     "jest": "catalog:",
+    "reflect-metadata": "catalog:",
+    "rxjs": "catalog:",
     "supertest": "catalog:",
     "ts-jest": "catalog:",
     "typescript": "catalog:nest-ts6"

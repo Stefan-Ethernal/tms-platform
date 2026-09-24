@@ -39,6 +39,7 @@ typescript-eslint its own classic compiler. Remove both workarounds once 7.1 shi
 - `apps/web-admin`, `apps/web-driver` — React SPAs
 - `packages/config` — shared tsconfig/eslint/jest presets; `packages/db` — Prisma schema and migrations
 - `packages/contracts`, `auth-core`, `domain`, `logger`, `ui` — arrive in phases 1–6 (see spec §6)
+- `packages/nest-bootstrap` — env, app setup, health, Sentry (apps stay at `main.ts` + `AppModule`)
 - `infra/` — compose, Dockerfiles, Caddyfile, `smoke.sh`; `e2e/` — Playwright
 - `tools/scripts` — hygiene + gitleaks wrapper; `tools/claude-plugin` — Claude plugin and its tests
 - `docs/adr/` — decisions; `docs/architecture.md` — technical docs; `docs/efficiency/` — journals

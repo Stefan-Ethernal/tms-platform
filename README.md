@@ -25,10 +25,17 @@ end of the POC).
 pnpm install                                   # installs dependencies and git hooks
 cp infra/.env.example infra/.env
 cp packages/db/.env.example packages/db/.env   # set BOOTSTRAP_ADMIN_EMAIL to your address
+cp apps/api-admin/.env.example apps/api-admin/.env
+cp apps/api-driver/.env.example apps/api-driver/.env
 pnpm compose up -d --build && infra/smoke.sh   # postgres :5432, mailpit :8025, migrate: deploy, sync, seed
 pnpm dev                                       # predev: migrate deploy, drift check, permission sync, seed;
                                                # then api-admin :3001, api-driver :3002, web-admin :5173, web-driver :5174
 ```
+
+The API `.env` files are optional: `pnpm dev` and `pnpm start` load them through Node's
+`--env-file-if-exists`, and without them the APIs use their defaults (ports 3001/3002 on 127.0.0.1,
+JSON logs on stdout and in `apps/api-*/logs/`). An invalid variable stops the API before Nest
+starts, naming it.
 
 `predev` is idempotent and create-only: it deploys pending migrations, fails with a hint if
 `schema.prisma` changed without a migration (`pnpm turbo run db:migrate:dev --filter=@tms/db -- --name <change>`),
@@ -59,15 +66,15 @@ stack. Every pull request records what was actually verified (see the PR templat
 
 ## Repository layout
 
-| Path                                | Content                                                                                                  |
-| ----------------------------------- | -------------------------------------------------------------------------------------------------------- |
-| `apps/api-admin`, `apps/api-driver` | NestJS back-office and kiosk APIs                                                                        |
-| `apps/web-admin`, `apps/web-driver` | React SPAs (back office, kiosk + queue display)                                                          |
-| `packages/*`                        | shared code: `config`, `db` (Prisma); `contracts`, `auth-core`, `domain`, `logger`, `ui` from phase 1 on |
-| `infra/`                            | docker-compose, Dockerfiles, Caddyfile, smoke test                                                       |
-| `e2e/`                              | Playwright tests                                                                                         |
-| `tools/`                            | hygiene scripts, gitleaks wrapper, Claude Code plugin                                                    |
-| `docs/`                             | spec, plans, ADRs, architecture, efficiency journals                                                     |
+| Path                                | Content                                                                                                                                             |
+| ----------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `apps/api-admin`, `apps/api-driver` | NestJS back-office and kiosk APIs                                                                                                                   |
+| `apps/web-admin`, `apps/web-driver` | React SPAs (back office, kiosk + queue display)                                                                                                     |
+| `packages/*`                        | shared code: `config`, `db` (Prisma), `contracts`, `logger`, `nest-bootstrap` (shared Nest setup); `auth-core`, `domain`, `ui` as their phases land |
+| `infra/`                            | docker-compose, Dockerfiles, Caddyfile, smoke test                                                                                                  |
+| `e2e/`                              | Playwright tests                                                                                                                                    |
+| `tools/`                            | hygiene scripts, gitleaks wrapper, Claude Code plugin                                                                                               |
+| `docs/`                             | spec, plans, ADRs, architecture, efficiency journals                                                                                                |
 
 ## Documentation
 

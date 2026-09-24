@@ -21,6 +21,7 @@
       "outputs": [],
       "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/infra/docker-compose.yml"]
     },
+    "@tms/nest-bootstrap#test": { "dependsOn": ["^build", "build"], "outputs": [] },
     "dev": { "cache": false, "persistent": true, "dependsOn": ["^build", "generate"] },
     "db:setup": {
       "cache": false,
