@@ -28,6 +28,8 @@ export const envSchema = createEnvSchema({ defaultPort: 3001 })
       .max(7 * 24)
       .default(12),
     SESSION_COOKIE_SECURE: z.stringbool().default(true),
+    SMTP_URL: z.url().default('smtp://localhost:1025'),
+    MAIL_FROM: z.string().min(3).default('TMS <no-reply@tms.local>'),
   })
   .refine((env) => env.NODE_ENV !== 'production' || env.SESSION_COOKIE_SECURE, {
     path: ['SESSION_COOKIE_SECURE'],

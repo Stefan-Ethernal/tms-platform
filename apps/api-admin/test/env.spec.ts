@@ -19,6 +19,8 @@ describe('api-admin environment', () => {
       SESSION_IDLE_MINUTES: 60,
       SESSION_ABSOLUTE_HOURS: 12,
       SESSION_COOKIE_SECURE: true,
+      SMTP_URL: 'smtp://localhost:1025',
+      MAIL_FROM: 'TMS <no-reply@tms.local>',
     });
   });
 

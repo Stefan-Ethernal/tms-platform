@@ -5,6 +5,7 @@ import { PrismaService } from '@tms/db/nest';
 import { resetTestDatabase } from '@tms/db/testing';
 import { seedDatabase } from '@tms/db';
 import { SessionCookie, SessionService } from '@tms/domain/admin';
+import type { InMemoryMailSender, MailMessage } from '@tms/domain/shared';
 
 export async function seedBase(app: INestApplication): Promise<PrismaService> {
   await resetTestDatabase();
@@ -57,4 +58,22 @@ export async function loginAs(
     .get(SessionService)
     .create(userId, scope, { mfaVerified: scope === 'FULL' });
   return `${app.get(SessionCookie).name}=${issued.token}`;
+}
+
+/**
+ * Resolves with the newest message to `to` once one is in the outbox (polls every 10 ms).
+ * Before an action whose mail replaces an earlier one to the same address, call `t.mail.clear()`.
+ */
+export async function waitForMail(
+  mail: InMemoryMailSender,
+  to: string,
+  timeoutMs = 1000,
+): Promise<MailMessage> {
+  const deadline = Date.now() + timeoutMs;
+  for (;;) {
+    const found = [...mail.sent].reverse().find((m) => m.to === to);
+    if (found) return found;
+    if (Date.now() >= deadline) throw new Error(`no mail to ${to} within ${timeoutMs} ms`);
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
 }

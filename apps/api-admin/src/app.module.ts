@@ -1,7 +1,7 @@
 import { type DynamicModule, Module } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
 import { AdminAuthModule, StaffSessionResolver } from '@tms/domain/admin';
-import { AccessGuard, PrincipalResolver, SharedModule } from '@tms/domain/shared';
+import { AccessGuard, MailModule, PrincipalResolver, SharedModule } from '@tms/domain/shared';
 import { CoreModule, ORIGIN_ALLOWLIST, OriginGuard } from '@tms/nest-bootstrap';
 import { AuthHttpModule } from './auth/auth-http.module';
 import type { Env } from './env';
@@ -15,6 +15,7 @@ export class AppModule {
       imports: [
         CoreModule.forRoot({ app: 'api-admin', env }),
         SharedModule.forRoot({ app: 'ADMIN' }),
+        MailModule.forRoot({ smtpUrl: env.SMTP_URL, from: env.MAIL_FROM }),
         AdminAuthModule.forRoot({
           session: {
             idleSeconds: env.SESSION_IDLE_MINUTES * 60,

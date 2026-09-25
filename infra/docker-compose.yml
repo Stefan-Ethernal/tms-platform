@@ -77,6 +77,8 @@ services:
       SESSION_IDLE_MINUTES: '60'
       SESSION_ABSOLUTE_HOURS: '12'
       SESSION_COOKIE_SECURE: 'true'
+      SMTP_URL: smtp://mailpit:1025
+      MAIL_FROM: 'TMS <no-reply@tms.local>'
     # Read-only root filesystem (deviation 10); the writable paths are the logs volume and /tmp.
     read_only: true
     tmpfs:

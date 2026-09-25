@@ -17,6 +17,7 @@
   "dependencies": {
     "@nestjs/common": "catalog:",
     "@nestjs/core": "catalog:",
+    "@nestjs/event-emitter": "catalog:",
     "@nestjs/platform-express": "catalog:",
     "@tms/contracts": "workspace:*",
     "@tms/domain": "workspace:*",
