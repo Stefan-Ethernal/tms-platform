@@ -1,11 +1,13 @@
 import { type DynamicModule, Module } from '@nestjs/common';
-import { SharedModule } from '@tms/domain/shared';
-import { CoreModule, createEnvSchema } from '@tms/nest-bootstrap';
-import type { z } from 'zod';
-
-/** The back-office API's environment: the shared variables, PORT defaulting to 3001. */
-export const envSchema = createEnvSchema({ defaultPort: 3001 });
-export type Env = z.infer<typeof envSchema>;
+import { APP_GUARD } from '@nestjs/core';
+import {
+  AccessGuard,
+  DenyAllPrincipalResolver,
+  PrincipalResolver,
+  SharedModule,
+} from '@tms/domain/shared';
+import { CoreModule, ORIGIN_ALLOWLIST, OriginGuard } from '@tms/nest-bootstrap';
+import type { Env } from './env';
 
 /** Root module; feature modules join `imports` next to CoreModule from phase 2 on. */
 @Module({})
@@ -16,6 +18,13 @@ export class AppModule {
       imports: [
         CoreModule.forRoot({ app: 'api-admin', env }),
         SharedModule.forRoot({ app: 'ADMIN' }),
+      ],
+      providers: [
+        { provide: ORIGIN_ALLOWLIST, useValue: env.ADMIN_WEB_ORIGINS },
+        { provide: APP_GUARD, useClass: OriginGuard },
+        // Task 16 inserts { provide: APP_GUARD, useClass: ThrottlerGuard } here.
+        { provide: APP_GUARD, useClass: AccessGuard },
+        { provide: PrincipalResolver, useClass: DenyAllPrincipalResolver }, // Task 11: StaffSessionResolver
       ],
     };
   }

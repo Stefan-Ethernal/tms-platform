@@ -22,6 +22,7 @@
   "dependencies": {
     "@nestjs-cls/transactional": "catalog:",
     "@nestjs-cls/transactional-adapter-prisma": "catalog:",
+    "@tms/auth-core": "workspace:*",
     "@tms/contracts": "workspace:*",
     "@tms/db": "workspace:*",
     "@tms/logger": "workspace:*",
@@ -39,6 +40,7 @@
     "@nestjs/platform-express": "catalog:",
     "@nestjs/testing": "catalog:",
     "@tms/config": "workspace:*",
+    "@types/express": "catalog:",
     "@types/jest": "catalog:",
     "@types/node": "catalog:",
     "@types/supertest": "catalog:",

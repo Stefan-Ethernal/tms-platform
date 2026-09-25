@@ -9,6 +9,7 @@ import {
   AUDIT_APP,
   AuditService,
   ClsService,
+  Public,
   REQUEST_CONTEXT_KEY,
   type RequestContext,
 } from '@tms/domain/shared';
@@ -19,6 +20,7 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 /** Test-only route: the skeleton has none, so the /api prefix is otherwise unobservable. */
 @Controller('probe')
 class ProbeController {
+  @Public()
   @Get()
   get(): { ok: true } {
     return { ok: true };
@@ -37,6 +39,7 @@ class AuditProbeController {
     private readonly cls: ClsService,
   ) {}
 
+  @Public()
   @Get('audit')
   async auditProbe(): Promise<{ clsId: string; contextId: string | undefined }> {
     await this.audit.record({ action: 'auth.invite.issued', outcome: 'SUCCESS' });

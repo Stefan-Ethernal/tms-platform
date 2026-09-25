@@ -23,19 +23,32 @@ describe('@tms/domain package surface', () => {
   it('@tms/domain/shared exports exactly the phase 1 names', () => {
     expect(Object.keys(shared).sort()).toEqual([
       'AUDIT_APP',
+      'AccessGuard',
       'AuditService',
+      'AuthThrottle',
       'Clock',
       'ClsService',
+      'CurrentPrincipal',
+      'DenyAllPrincipalResolver',
       'FixedClock',
       'InMemoryMailSender',
       'MailSender',
+      'PRINCIPAL_REQUEST_KEY',
+      'PrincipalResolver',
       'Propagation',
+      'Public',
       'REQUEST_CONTEXT_KEY',
+      'RequirePermissions',
+      'RequireSession',
+      'RequireStepUp',
       'SharedModule',
+      'SkipSessionTouch',
       'SystemClock',
       'TransactionHost',
       'Transactional',
       'USER_AGENT_MAX_LENGTH',
+      'readRouteAccess',
+      'scanRouteAccess',
     ]);
   });
 });

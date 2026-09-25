@@ -1,0 +1,1 @@
+[{ "route": "GET /api/health", "access": { "kind": "public", "stepUp": false } }]

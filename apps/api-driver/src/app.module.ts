@@ -1,5 +1,11 @@
 import { type DynamicModule, Module } from '@nestjs/common';
-import { SharedModule } from '@tms/domain/shared';
+import { APP_GUARD } from '@nestjs/core';
+import {
+  AccessGuard,
+  DenyAllPrincipalResolver,
+  PrincipalResolver,
+  SharedModule,
+} from '@tms/domain/shared';
 import { CoreModule, createEnvSchema } from '@tms/nest-bootstrap';
 import type { z } from 'zod';
 
@@ -16,6 +22,10 @@ export class AppModule {
       imports: [
         CoreModule.forRoot({ app: 'api-driver', env }),
         SharedModule.forRoot({ app: 'DRIVER' }),
+      ],
+      providers: [
+        { provide: APP_GUARD, useClass: AccessGuard },
+        { provide: PrincipalResolver, useClass: DenyAllPrincipalResolver },
       ],
     };
   }

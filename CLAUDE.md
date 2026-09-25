@@ -54,8 +54,9 @@ typescript-eslint its own classic compiler. Remove both workarounds once 7.1 shi
   the dev database.
 - Dependency rule `contracts <- db <- domain <- apps`, `contracts, db, logger <- bootstrap <- api`,
   web apps only `contracts`/`ui` (eslint boundaries); `api-driver` only `@tms/domain/{checkin,shared}`.
-- Every route is decorated `@RequirePermissions` or `@Public` (from phase 3a); audit records are
-  written inside the caller's transaction; enums and DTO schemas live in `contracts`.
+- Every route carries exactly one of `@Public`, `@RequireSession`, `@RequirePermissions` (ADR 0010;
+  the route-access snapshot test lists them); audit records are written inside the caller's
+  transaction; enums and DTO schemas live in `contracts`.
 - Libraries consumed by the SPAs (`contracts`, later `ui`) are ESM; Nest-aware libraries are
   CommonJS (`nest-library.json`); package `exports` carry `types` + `default`.
 - UI strings only through i18n keys; `en` is the only bundle for now.

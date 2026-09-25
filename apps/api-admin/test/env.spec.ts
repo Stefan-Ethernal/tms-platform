@@ -1,6 +1,6 @@
 import { testDatabaseUrl } from '@tms/db/testing';
 import { loadEnv } from '@tms/nest-bootstrap';
-import { envSchema } from '../src/app.module';
+import { envSchema } from '../src/env';
 
 describe('api-admin environment', () => {
   it('defaults to port 3001, JSON log files under ./logs and a 1000 ms health budget', () => {
@@ -15,6 +15,7 @@ describe('api-admin environment', () => {
       HEALTH_DB_TIMEOUT_MS: 1000,
       PORT: 3001,
       TRUST_PROXY: 'loopback',
+      ADMIN_WEB_ORIGINS: ['http://localhost:5173'],
     });
   });
 });

@@ -1,3 +1,4 @@
+export * from './access';
 export { AUDIT_APP, AuditService, type AuditRecordInput } from './audit.service';
 export { Clock, FixedClock, SystemClock } from './clock';
 export { InMemoryMailSender, MailSender, type MailMessage } from './mail';
