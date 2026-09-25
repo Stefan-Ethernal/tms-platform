@@ -40,6 +40,11 @@ export class ProbeController {
   @RequirePermissions('users:block') @RequireStepUp() @Get('stepup') stepUp() {
     return 'stepup';
   }
+  /** `@RequireStepUp()` only makes sense on an authenticated route; paired with `@Public()` it is
+   * an ambiguous combination the guard must reject, not silently drop. */
+  @Public() @RequireStepUp() @Get('public-stepup') publicStepUp() {
+    return 'public-stepup';
+  }
 }
 
 @SetMetadata(PUBLIC_ROUTE_KEY, true)

@@ -49,6 +49,9 @@ export function readRouteAccess(reflector: Reflector, handler: Function): RouteA
   const count = Number(isPublic) + Number(scopes !== undefined) + Number(codes !== undefined);
   if (count === 0) return { kind: 'invalid', reason: 'NONE', stepUp };
   if (count > 1) return { kind: 'invalid', reason: 'MULTIPLE', stepUp };
+  // @RequireStepUp() only makes sense on an authenticated route; paired with @Public() it is the
+  // same ambiguity as two primary markers, not a silently-dropped modifier.
+  if (isPublic && stepUp) return { kind: 'invalid', reason: 'MULTIPLE', stepUp };
   if (isPublic) return { kind: 'public', stepUp };
   if (scopes) return { kind: 'session', scopes, stepUp };
   return { kind: 'permissions', codes: codes ?? [], stepUp };

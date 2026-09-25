@@ -60,6 +60,9 @@ describe('AccessGuard', () => {
   it('rejects a handler with two markers', async () => {
     expect(await codeOf(get('/p/two').expect(403))).toBe('ROUTE_NOT_DECLARED');
   });
+  it('rejects @Public() combined with @RequireStepUp() instead of silently dropping step-up', async () => {
+    expect(await codeOf(get('/p/public-stepup').expect(403))).toBe('ROUTE_NOT_DECLARED');
+  });
   it('ignores class-level markers (method level only)', async () => {
     expect(await codeOf(get('/c').expect(403))).toBe('ROUTE_NOT_DECLARED');
   });

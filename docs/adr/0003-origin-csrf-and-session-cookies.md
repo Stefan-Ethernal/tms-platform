@@ -22,10 +22,14 @@ Single origin per environment: the SPA and its API share one origin (Vite's `/ap
 development, Caddy in the production-like profile), so no CORS configuration ever has to allow
 credentials from a second origin. The session cookie is `__Host-tms_admin_sid`: `HttpOnly`,
 `Secure`, `SameSite=Strict`, `Path=/`, no `Max-Age` (a session cookie, cleared on browser close;
-server-side expiry is enforced independently, Task 11); the `__Host-` prefix pins it to `Secure`,
-`Path=/`, no `Domain` attribute, which stops a subdomain from ever setting a cookie of the same name.
-Only a hash of the session token is stored at rest; the token itself rotates on every scope upgrade
-(`PRE_MFA` → `FULL`, etc.), so a leaked historical hash cannot be replayed as a live session.
+server-side expiry is enforced independently by the session service); the `__Host-` prefix pins it
+to `Secure`, `Path=/`, no `Domain` attribute, which stops a subdomain from ever setting a cookie of
+the same name. Only a hash of the session token is stored at rest, and the token itself rotates on
+every scope upgrade (`PRE_MFA` → `FULL`, etc.): this defends against session fixation (an attacker
+who fixed or intercepted the pre-escalation token loses access once the session moves to a new
+scope) and against replay of a stale pre-MFA token after the session has already escalated to
+`FULL` — not against a leaked hash, since the hash is never itself a usable credential (only the
+raw token is, and the raw token is never stored).
 
 `OriginGuard` (`@tms/nest-bootstrap`) runs on every request, ahead of authentication (`AccessGuard`,
 ADR 0010), so a rejected cross-origin request never reaches the principal resolver:
@@ -45,9 +49,9 @@ ADR 0010), so a rejected cross-origin request never reaches the principal resolv
   `Sec-Fetch-Site: same-origin`, since `Origin` is authoritative when present and a same-origin
   metadata claim does not override a foreign origin actually stated by the request.
 
-`trust proxy` (ADR 0009 / Task 09) is limited to `loopback` in development and to the compose
-network's private range in the production-like profile, so `req.ip` (used by the per-IP throttler,
-Task 16) cannot be spoofed by an `X-Forwarded-For` header from outside that trusted hop.
+`trust proxy` (ADR 0009) is limited to `loopback` in development and to the compose network's
+private range in the production-like profile, so `req.ip` (used by the per-IP auth throttler)
+cannot be spoofed by an `X-Forwarded-For` header from outside that trusted hop.
 
 ## Alternatives considered
 
@@ -70,8 +74,11 @@ Task 16) cannot be spoofed by an `X-Forwarded-For` header from outside that trus
 - Any script or `curl` invocation against a mutating route needs to set `Origin` (or run from a
   context a browser marks `Sec-Fetch-Site: same-origin`); this is exercised directly in
   `apps/api-admin/test/route-access.e2e-spec.ts`.
-- `SESSION_COOKIE_SECURE=false` (Task 11's fallback for non-localhost HTTP development, e.g. testing
-  from a phone on the LAN) is a development-only escape hatch and is rejected by `loadEnv` when
-  `NODE_ENV=production`, matching the pattern already used for other dev-only secrets.
+- `SESSION_COOKIE_SECURE=false` (a fallback for non-localhost HTTP development, e.g. testing from a
+  phone on the LAN) is a development-only escape hatch that follows directly from this ADR's
+  `Secure`-cookie decision. The variable does not exist in the environment schema yet — it and its
+  `loadEnv` rejection under `NODE_ENV=production` are added by the work that introduces staff
+  sessions, not by this ADR's own change; the rule is recorded here because it is this decision's
+  consequence, not because it already exists.
 - Phase 5's kiosk API is out of scope for this ADR: it authenticates via a device key, not a cookie
   session, and `OriginGuard` is not wired into `api-driver` until that phase needs it.

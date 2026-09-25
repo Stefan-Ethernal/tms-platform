@@ -31,6 +31,12 @@ describe('scanRouteAccess', () => {
       access: { kind: 'permissions', codes: ['users:read', 'users:block'], stepUp: false },
     });
     expect(byHandler['ClassMarkedController.x']?.classMarkers).toEqual(['tms:public-route']);
+    expect(byHandler['ClassMarkedController.x']?.access.kind).toBe('invalid');
+    expect(byHandler['ProbeController.publicStepUp']?.access).toEqual({
+      kind: 'invalid',
+      reason: 'MULTIPLE',
+      stepUp: true,
+    });
     await app.close();
   });
 });
