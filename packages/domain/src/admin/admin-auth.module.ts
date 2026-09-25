@@ -7,6 +7,8 @@ import {
 } from '@tms/auth-core';
 import { AUTH_OPTIONS, type AdminAuthOptions } from './auth/options';
 import { PASSWORD_HASHER, RANDOM_SOURCE, SECRET_CIPHER, TOTP_PROVIDER } from './auth/ports';
+import { AccountLockService } from './auth/login/account-lock.service';
+import { LoginService } from './auth/login/login.service';
 import { EnrollmentService } from './auth/enrollment/enrollment.service';
 import { InviteService } from './auth/invites/invite.service';
 import { SessionCookie } from './auth/sessions/session-cookie';
@@ -46,6 +48,8 @@ export class AdminAuthModule {
         EnrollmentService,
         UserAdminService,
         RoleAdminService,
+        AccountLockService,
+        LoginService,
       ],
       exports: [
         AUTH_OPTIONS,
@@ -60,6 +64,8 @@ export class AdminAuthModule {
         EnrollmentService,
         UserAdminService,
         RoleAdminService,
+        AccountLockService,
+        LoginService,
       ],
     };
   }

@@ -2,6 +2,13 @@ export { AdminAuthModule } from './admin-auth.module';
 export { AUTH_OPTIONS, type AdminAuthOptions } from './auth/options';
 export { PASSWORD_HASHER, RANDOM_SOURCE, SECRET_CIPHER, TOTP_PROVIDER } from './auth/ports';
 export { assertStrongPassword, passwordFieldErrors, totpAad } from './auth/credentials';
+export {
+  AccountLockService,
+  type LockColumns,
+  type LockedAccount,
+} from './auth/login/account-lock.service';
+export { accountLocked, invalidCredentials, LoginService } from './auth/login/login.service';
+export { accountThrottleKey, authThrottlers, type AuthThrottleLimits } from './auth/throttling';
 export { EnrollmentService } from './auth/enrollment/enrollment.service';
 export { InviteService } from './auth/invites/invite.service';
 export { evaluateStaffSession } from './auth/sessions/evaluate-session';

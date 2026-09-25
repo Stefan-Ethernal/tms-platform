@@ -7,7 +7,13 @@ const TotpCode = z.string().regex(/^\d{6}$/);
 /** 32 random bytes, base64url without padding. */
 const RawToken = z.string().regex(/^[A-Za-z0-9_-]{43}$/);
 const CROCKFORD_GROUP = '[0-9A-HJKMNP-TV-Z]{4}';
-const RecoveryCode = z.string().regex(new RegExp(`^${CROCKFORD_GROUP}(-${CROCKFORD_GROUP}){3}$`));
+/**
+ * A recovery code as a human types it: lower case, spaces or dashes, and Crockford's I/L/O
+ * aliases are all accepted (mirrors `normalizeRecoveryCode`'s own bound in `@tms/auth-core`,
+ * which turns anything outside the canonical form into `null` — a domain-level `INVALID_CODE`,
+ * not a 422). The canonical, generated form (`RecoveryCodesResponseSchema`) stays strict.
+ */
+const RecoveryCode = z.string().min(1).max(64);
 
 export const LoginRequestSchema = z.strictObject({ email: EmailSchema, password: Password });
 /** The live TOTP code travels under `totpCode`, not the bare `code`, so `totp` (a whole-word

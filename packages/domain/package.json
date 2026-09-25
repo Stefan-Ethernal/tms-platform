@@ -37,6 +37,7 @@
     "@nestjs/common": "catalog:",
     "@nestjs/core": "catalog:",
     "@nestjs/event-emitter": "catalog:",
+    "@nestjs/throttler": "catalog:",
     "reflect-metadata": "catalog:",
     "rxjs": "catalog:"
   },
@@ -46,6 +47,7 @@
     "@nestjs/event-emitter": "catalog:",
     "@nestjs/platform-express": "catalog:",
     "@nestjs/testing": "catalog:",
+    "@nestjs/throttler": "catalog:",
     "@tms/config": "workspace:*",
     "@types/express": "catalog:",
     "@types/jest": "catalog:",

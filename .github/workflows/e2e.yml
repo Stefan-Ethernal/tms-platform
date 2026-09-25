@@ -31,7 +31,7 @@ jobs:
       - name: Start the full stack
         run: |
           cp infra/.env.example infra/.env
-          pnpm compose --profile full up -d --build
+          pnpm compose:test --profile full up -d --build
       - name: Smoke test the stack
         run: infra/smoke.sh --full
       - name: Migrate image budget
@@ -53,7 +53,7 @@ jobs:
           CI: 'true'
       - name: Compose logs on failure
         if: failure()
-        run: pnpm compose --profile full logs --no-color
+        run: pnpm compose:test --profile full logs --no-color
       - uses: actions/upload-artifact@v7
         if: failure()
         with:
@@ -64,4 +64,4 @@ jobs:
           retention-days: 7
       - name: Stop the stack
         if: always()
-        run: pnpm compose --profile full down -v
+        run: pnpm compose:test --profile full down -v

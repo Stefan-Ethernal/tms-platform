@@ -1,7 +1,8 @@
 import { type DynamicModule, Module } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
+import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { parseKeyring } from '@tms/auth-core';
-import { AdminAuthModule, StaffSessionResolver } from '@tms/domain/admin';
+import { AdminAuthModule, authThrottlers, StaffSessionResolver } from '@tms/domain/admin';
 import { AccessGuard, MailModule, PrincipalResolver, SharedModule } from '@tms/domain/shared';
 import { CoreModule, ORIGIN_ALLOWLIST, OriginGuard } from '@tms/nest-bootstrap';
 import { AdminHttpModule } from './admin/admin-http.module';
@@ -33,6 +34,19 @@ export class AppModule {
           },
           passwordPepper: Buffer.from(env.PASSWORD_PEPPER, 'base64'),
           totpIssuer: env.TOTP_ISSUER,
+          lockout: {
+            threshold: env.LOCKOUT_THRESHOLD,
+            baseLockSeconds: env.LOCKOUT_BASE_SECONDS,
+            maxLockSeconds: env.LOCKOUT_MAX_SECONDS,
+          },
+        }),
+        ThrottlerModule.forRoot({
+          throttlers: authThrottlers({
+            ipLimit: env.THROTTLE_AUTH_IP_LIMIT,
+            ipTtlSeconds: env.THROTTLE_AUTH_IP_TTL_SECONDS,
+            accountLimit: env.THROTTLE_AUTH_ACCOUNT_LIMIT,
+            accountTtlSeconds: env.THROTTLE_AUTH_ACCOUNT_TTL_SECONDS,
+          }),
         }),
         AuthHttpModule,
         AdminHttpModule,
@@ -40,7 +54,7 @@ export class AppModule {
       providers: [
         { provide: ORIGIN_ALLOWLIST, useValue: env.ADMIN_WEB_ORIGINS },
         { provide: APP_GUARD, useClass: OriginGuard },
-        // Task 16 inserts { provide: APP_GUARD, useClass: ThrottlerGuard } here.
+        { provide: APP_GUARD, useClass: ThrottlerGuard },
         { provide: APP_GUARD, useClass: AccessGuard },
         { provide: PrincipalResolver, useExisting: StaffSessionResolver },
       ],

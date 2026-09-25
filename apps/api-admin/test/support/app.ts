@@ -17,6 +17,10 @@ export function testEnv(overrides: Record<string, string> = {}): Env {
     LOG_FILE_ENABLED: 'false',
     TRUST_PROXY: 'false',
     ADMIN_WEB_ORIGINS: ORIGIN,
+    // Every e2e file shares one app and one client IP; only tests that pass small throttle
+    // limits explicitly (Task 16/17) hit a 429.
+    THROTTLE_AUTH_IP_LIMIT: '10000',
+    THROTTLE_AUTH_ACCOUNT_LIMIT: '10000',
     ...overrides,
   });
 }
