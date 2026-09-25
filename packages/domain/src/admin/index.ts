@@ -9,3 +9,5 @@ export { SessionCookie } from './auth/sessions/session-cookie';
 export { type IssuedSession, SessionService } from './auth/sessions/session.service';
 export { StaffSessionResolver } from './auth/sessions/staff-session.resolver';
 export { ActionTokenService } from './auth/tokens/action-token.service';
+export { RoleAdminService } from './roles/role-admin.service';
+export { type CreateUserInput, UserAdminService } from './users/user-admin.service';
