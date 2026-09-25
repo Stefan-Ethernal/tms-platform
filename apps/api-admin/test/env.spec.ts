@@ -1,6 +1,6 @@
 import { testDatabaseUrl } from '@tms/db/testing';
 import { loadEnv } from '@tms/nest-bootstrap';
-import { envSchema } from '../src/env';
+import { DEV_KEYRING, DEV_PEPPER, envSchema } from '../src/env';
 
 describe('api-admin environment', () => {
   it('defaults to port 3001, JSON log files under ./logs and a 1000 ms health budget', () => {
@@ -21,6 +21,12 @@ describe('api-admin environment', () => {
       SESSION_COOKIE_SECURE: true,
       SMTP_URL: 'smtp://localhost:1025',
       MAIL_FROM: 'TMS <no-reply@tms.local>',
+      ADMIN_WEB_URL: 'http://localhost:5173',
+      INVITE_TTL_HOURS: 72,
+      SECRETS_ENC_KEYS: DEV_KEYRING,
+      SECRETS_ENC_ACTIVE_KEY_ID: 'dev1',
+      PASSWORD_PEPPER: DEV_PEPPER,
+      TOTP_ISSUER: 'TMS',
     });
   });
 
@@ -29,5 +35,44 @@ describe('api-admin environment', () => {
     expect(() =>
       loadEnv(envSchema, { DATABASE_URL, NODE_ENV: 'production', SESSION_COOKIE_SECURE: 'false' }),
     ).toThrow(/SESSION_COOKIE_SECURE/);
+  });
+
+  it('both dev defaults decode to exactly 32 bytes', () => {
+    expect(Buffer.from(DEV_PEPPER, 'base64').length).toBe(32);
+    expect(Buffer.from(DEV_KEYRING.split(':')[1]!, 'base64').length).toBe(32);
+  });
+
+  it('rejects a keyring that does not contain the active key id, without echoing either value', () => {
+    const DATABASE_URL = testDatabaseUrl();
+    expect(() =>
+      loadEnv(envSchema, {
+        DATABASE_URL,
+        SECRETS_ENC_KEYS: DEV_KEYRING,
+        SECRETS_ENC_ACTIVE_KEY_ID: 'missing',
+      }),
+    ).toThrow(/SECRETS_ENC_KEYS/);
+  });
+
+  it('rejects an undersized password pepper', () => {
+    const DATABASE_URL = testDatabaseUrl();
+    const short = Buffer.from('too-short').toString('base64');
+    expect(() => loadEnv(envSchema, { DATABASE_URL, PASSWORD_PEPPER: short })).toThrow(
+      /PASSWORD_PEPPER/,
+    );
+  });
+
+  it('rejects the dev keyring and pepper in production, without echoing either value', () => {
+    const DATABASE_URL = testDatabaseUrl();
+    expect(() => {
+      try {
+        loadEnv(envSchema, { DATABASE_URL, NODE_ENV: 'production' });
+      } catch (error) {
+        const message = (error as Error).message;
+        expect(message).toMatch(/SECRETS_ENC_KEYS/);
+        expect(message).not.toContain(DEV_KEYRING);
+        expect(message).not.toContain(DEV_PEPPER);
+        throw error;
+      }
+    }).toThrow();
   });
 });

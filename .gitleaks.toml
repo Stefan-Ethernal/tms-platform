@@ -2,3 +2,12 @@ title = "TMS platform gitleaks config"
 
 [extend]
 useDefault = true
+
+[allowlist]
+description = "Public dev-only defaults (rejected by loadEnv in production)"
+regexes = [
+  '''ZGV2LW9ubHktc2VjcmV0cy1lbmMta2V5LTMyLWJ5dGU=''',
+  '''ZGV2LW9ubHktcGFzc3dvcmQtcGVwcGVyLTMyYnl0ZXM=''',
+  '''c3RhY2sxLWNvbXBvc2UtY2ktc2VjcmV0cy1rZXktMzI=''',
+  '''c3RhY2sxLWNvbXBvc2UtY2ktcGVwcGVyLTMyYnl0ZXM=''',
+]

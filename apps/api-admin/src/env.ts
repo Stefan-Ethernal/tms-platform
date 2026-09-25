@@ -1,3 +1,4 @@
+import { parseKeyring } from '@tms/auth-core';
 import { createEnvSchema } from '@tms/nest-bootstrap';
 import { z } from 'zod';
 
@@ -10,6 +11,10 @@ const OriginList = z
       .filter(Boolean),
   )
   .pipe(z.array(z.url()).min(1));
+
+// Both decode to exactly 32 bytes: 'dev-only-secrets-enc-key-32-byte' and 'dev-only-password-pepper-32bytes'.
+export const DEV_KEYRING = 'dev1:ZGV2LW9ubHktc2VjcmV0cy1lbmMta2V5LTMyLWJ5dGU=';
+export const DEV_PEPPER = 'ZGV2LW9ubHktcGFzc3dvcmQtcGVwcGVyLTMyYnl0ZXM=';
 
 /** The back-office API's environment: the shared variables, PORT defaulting to 3001, the admin-only variables. */
 export const envSchema = createEnvSchema({ defaultPort: 3001 })
@@ -30,9 +35,49 @@ export const envSchema = createEnvSchema({ defaultPort: 3001 })
     SESSION_COOKIE_SECURE: z.stringbool().default(true),
     SMTP_URL: z.url().default('smtp://localhost:1025'),
     MAIL_FROM: z.string().min(3).default('TMS <no-reply@tms.local>'),
+    ADMIN_WEB_URL: z.url().default('http://localhost:5173'),
+    INVITE_TTL_HOURS: z.coerce
+      .number()
+      .int()
+      .min(1)
+      .max(24 * 14)
+      .default(72),
+    SECRETS_ENC_KEYS: z.string().default(DEV_KEYRING),
+    SECRETS_ENC_ACTIVE_KEY_ID: z
+      .string()
+      .regex(/^[A-Za-z0-9_-]{1,32}$/)
+      .default('dev1'),
+    PASSWORD_PEPPER: z.string().default(DEV_PEPPER),
+    TOTP_ISSUER: z.string().min(1).max(40).default('TMS'),
   })
   .refine((env) => env.NODE_ENV !== 'production' || env.SESSION_COOKIE_SECURE, {
     path: ['SESSION_COOKIE_SECURE'],
     message: 'must be true in production',
+  })
+  .refine(
+    (env) => {
+      try {
+        const keyring = parseKeyring(env.SECRETS_ENC_KEYS);
+        return env.SECRETS_ENC_ACTIVE_KEY_ID in keyring;
+      } catch {
+        return false;
+      }
+    },
+    {
+      path: ['SECRETS_ENC_KEYS'],
+      message: 'must be a valid keyring containing SECRETS_ENC_ACTIVE_KEY_ID',
+    },
+  )
+  .refine((env) => Buffer.from(env.PASSWORD_PEPPER, 'base64').length >= 32, {
+    path: ['PASSWORD_PEPPER'],
+    message: 'must decode to at least 32 bytes',
+  })
+  .refine((env) => env.NODE_ENV !== 'production' || env.SECRETS_ENC_KEYS !== DEV_KEYRING, {
+    path: ['SECRETS_ENC_KEYS'],
+    message: 'must not use the development default in production',
+  })
+  .refine((env) => env.NODE_ENV !== 'production' || env.PASSWORD_PEPPER !== DEV_PEPPER, {
+    path: ['PASSWORD_PEPPER'],
+    message: 'must not use the development default in production',
   });
 export type Env = z.infer<typeof envSchema>;
