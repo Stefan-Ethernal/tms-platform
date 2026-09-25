@@ -89,6 +89,7 @@ describe('api-driver skeleton (e2e)', () => {
     expect(JSON.stringify(res.body)).not.toMatch(/at .*\.js:\d+/);
     expect(res.headers['x-request-id']).toMatch(UUID);
     expect(res.headers['x-powered-by']).toBeUndefined();
+    expect(res.headers['cache-control']).toBe('no-store');
   });
 
   it('serves nothing outside the /api prefix', async () => {

@@ -18,6 +18,7 @@
     "@nestjs/common": "catalog:",
     "@nestjs/core": "catalog:",
     "@nestjs/platform-express": "catalog:",
+    "@tms/contracts": "workspace:*",
     "@tms/domain": "workspace:*",
     "@tms/nest-bootstrap": "workspace:*",
     "reflect-metadata": "catalog:",

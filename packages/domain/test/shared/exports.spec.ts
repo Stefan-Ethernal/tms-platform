@@ -9,12 +9,13 @@ interface Manifest {
 }
 
 describe('@tms/domain package surface', () => {
-  it('exports only ./shared, so the bare specifier cannot resolve', () => {
+  it('exports only ./shared and ./admin, so the bare specifier cannot resolve', () => {
     const manifest = JSON.parse(
       readFileSync(path.join(__dirname, '..', '..', 'package.json'), 'utf8'),
     ) as Manifest;
     expect(manifest.exports).toEqual({
       './shared': { types: './dist/shared/index.d.ts', default: './dist/shared/index.js' },
+      './admin': { types: './dist/admin/index.d.ts', default: './dist/admin/index.js' },
     });
     expect(manifest.main).toBeUndefined();
     expect(manifest.types).toBeUndefined();

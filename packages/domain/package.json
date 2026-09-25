@@ -8,6 +8,10 @@
     "./shared": {
       "types": "./dist/shared/index.d.ts",
       "default": "./dist/shared/index.js"
+    },
+    "./admin": {
+      "types": "./dist/admin/index.d.ts",
+      "default": "./dist/admin/index.js"
     }
   },
   "files": [
@@ -45,6 +49,7 @@
     "@types/node": "catalog:",
     "@types/supertest": "catalog:",
     "eslint": "catalog:",
+    "fast-check": "catalog:",
     "jest": "catalog:",
     "reflect-metadata": "catalog:",
     "rxjs": "catalog:",

@@ -1,1 +1,11 @@
-[{ "route": "GET /api/health", "access": { "kind": "public", "stepUp": false } }]
+[
+  {
+    "route": "GET /api/auth/session",
+    "access": { "kind": "session", "scopes": ["ANY"], "stepUp": false }
+  },
+  { "route": "GET /api/health", "access": { "kind": "public", "stepUp": false } },
+  {
+    "route": "POST /api/auth/logout",
+    "access": { "kind": "session", "scopes": ["ANY"], "stepUp": false }
+  }
+]
