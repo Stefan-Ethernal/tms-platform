@@ -1,5 +1,6 @@
 import {
   AcceptInviteRequestSchema,
+  CreateUserRequestSchema,
   SetPasswordRequestSchema,
   TotpConfirmRequestSchema,
   UserIdParamSchema,
@@ -10,3 +11,4 @@ export class AcceptInviteDto extends zodDto(AcceptInviteRequestSchema) {}
 export class UserIdParamDto extends zodDto(UserIdParamSchema) {}
 export class SetPasswordDto extends zodDto(SetPasswordRequestSchema) {}
 export class TotpConfirmDto extends zodDto(TotpConfirmRequestSchema) {}
+export class CreateUserDto extends zodDto(CreateUserRequestSchema) {}

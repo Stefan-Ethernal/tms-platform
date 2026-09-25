@@ -13,6 +13,8 @@ import { SessionCookie } from './auth/sessions/session-cookie';
 import { SessionService } from './auth/sessions/session.service';
 import { StaffSessionResolver } from './auth/sessions/staff-session.resolver';
 import { ActionTokenService } from './auth/tokens/action-token.service';
+import { RoleAdminService } from './roles/role-admin.service';
+import { UserAdminService } from './users/user-admin.service';
 
 @Module({})
 export class AdminAuthModule {
@@ -42,6 +44,8 @@ export class AdminAuthModule {
         ActionTokenService,
         InviteService,
         EnrollmentService,
+        UserAdminService,
+        RoleAdminService,
       ],
       exports: [
         AUTH_OPTIONS,
@@ -54,6 +58,8 @@ export class AdminAuthModule {
         ActionTokenService,
         InviteService,
         EnrollmentService,
+        UserAdminService,
+        RoleAdminService,
       ],
     };
   }
