@@ -85,6 +85,13 @@ services:
       SECRETS_ENC_ACTIVE_KEY_ID: ${SECRETS_ENC_ACTIVE_KEY_ID:-stack1}
       PASSWORD_PEPPER: ${PASSWORD_PEPPER:?set in infra/.env}
       TOTP_ISSUER: TMS
+      LOCKOUT_THRESHOLD: '5'
+      LOCKOUT_BASE_SECONDS: '900'
+      LOCKOUT_MAX_SECONDS: '3600'
+      THROTTLE_AUTH_IP_LIMIT: '30'
+      THROTTLE_AUTH_IP_TTL_SECONDS: '60'
+      THROTTLE_AUTH_ACCOUNT_LIMIT: '10'
+      THROTTLE_AUTH_ACCOUNT_TTL_SECONDS: '900'
     # Read-only root filesystem (deviation 10); the writable paths are the logs volume and /tmp.
     read_only: true
     tmpfs:

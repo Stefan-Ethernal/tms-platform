@@ -1,0 +1,8 @@
+# Short lockouts and generous rate limits for Playwright (spec section 6: profile "test").
+services:
+  api-admin:
+    environment:
+      LOCKOUT_BASE_SECONDS: '5'
+      LOCKOUT_MAX_SECONDS: '20'
+      THROTTLE_AUTH_IP_LIMIT: '1000'
+      THROTTLE_AUTH_ACCOUNT_LIMIT: '1000'

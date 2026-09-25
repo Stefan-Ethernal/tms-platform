@@ -19,6 +19,7 @@
     "@nestjs/core": "catalog:",
     "@nestjs/event-emitter": "catalog:",
     "@nestjs/platform-express": "catalog:",
+    "@nestjs/throttler": "catalog:",
     "@tms/auth-core": "workspace:*",
     "@tms/contracts": "workspace:*",
     "@tms/domain": "workspace:*",

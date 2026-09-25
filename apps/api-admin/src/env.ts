@@ -49,6 +49,13 @@ export const envSchema = createEnvSchema({ defaultPort: 3001 })
       .default('dev1'),
     PASSWORD_PEPPER: z.string().default(DEV_PEPPER),
     TOTP_ISSUER: z.string().min(1).max(40).default('TMS'),
+    LOCKOUT_THRESHOLD: z.coerce.number().int().min(1).max(20).default(5),
+    LOCKOUT_BASE_SECONDS: z.coerce.number().int().min(1).max(86400).default(900),
+    LOCKOUT_MAX_SECONDS: z.coerce.number().int().min(1).default(3600),
+    THROTTLE_AUTH_IP_LIMIT: z.coerce.number().int().min(1).default(30),
+    THROTTLE_AUTH_IP_TTL_SECONDS: z.coerce.number().int().min(1).default(60),
+    THROTTLE_AUTH_ACCOUNT_LIMIT: z.coerce.number().int().min(1).default(10),
+    THROTTLE_AUTH_ACCOUNT_TTL_SECONDS: z.coerce.number().int().min(1).default(900),
   })
   .refine((env) => env.NODE_ENV !== 'production' || env.SESSION_COOKIE_SECURE, {
     path: ['SESSION_COOKIE_SECURE'],
@@ -79,5 +86,9 @@ export const envSchema = createEnvSchema({ defaultPort: 3001 })
   .refine((env) => env.NODE_ENV !== 'production' || env.PASSWORD_PEPPER !== DEV_PEPPER, {
     path: ['PASSWORD_PEPPER'],
     message: 'must not use the development default in production',
+  })
+  .refine((env) => env.LOCKOUT_MAX_SECONDS >= env.LOCKOUT_BASE_SECONDS, {
+    path: ['LOCKOUT_MAX_SECONDS'],
+    message: 'must be at least LOCKOUT_BASE_SECONDS',
   });
 export type Env = z.infer<typeof envSchema>;

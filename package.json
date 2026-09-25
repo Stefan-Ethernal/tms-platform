@@ -19,6 +19,7 @@
     "hygiene": "node tools/scripts/check-hygiene.mjs && tools/scripts/gitleaks.sh git --redact --no-banner",
     "verify": "turbo run lint typecheck test build && pnpm format:check && pnpm hygiene",
     "compose": "docker compose -f infra/docker-compose.yml",
+    "compose:test": "docker compose -f infra/docker-compose.yml -f infra/docker-compose.test.yml",
     "claude": "\"${CLAUDE_BIN:-claude}\" --plugin-dir tools/claude-plugin/ethernal-nest-react"
   },
   "devDependencies": {

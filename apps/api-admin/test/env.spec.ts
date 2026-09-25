@@ -27,7 +27,25 @@ describe('api-admin environment', () => {
       SECRETS_ENC_ACTIVE_KEY_ID: 'dev1',
       PASSWORD_PEPPER: DEV_PEPPER,
       TOTP_ISSUER: 'TMS',
+      LOCKOUT_THRESHOLD: 5,
+      LOCKOUT_BASE_SECONDS: 900,
+      LOCKOUT_MAX_SECONDS: 3600,
+      THROTTLE_AUTH_IP_LIMIT: 30,
+      THROTTLE_AUTH_IP_TTL_SECONDS: 60,
+      THROTTLE_AUTH_ACCOUNT_LIMIT: 10,
+      THROTTLE_AUTH_ACCOUNT_TTL_SECONDS: 900,
     });
+  });
+
+  it('rejects a lockout cap lower than the base duration', () => {
+    const DATABASE_URL = testDatabaseUrl();
+    expect(() =>
+      loadEnv(envSchema, {
+        DATABASE_URL,
+        LOCKOUT_BASE_SECONDS: '900',
+        LOCKOUT_MAX_SECONDS: '60',
+      }),
+    ).toThrow(/LOCKOUT_MAX_SECONDS/);
   });
 
   it('rejects a disabled cookie Secure flag in production', () => {

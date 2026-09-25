@@ -25,9 +25,14 @@
     "access": { "kind": "session", "scopes": ["ENROLLMENT"], "stepUp": false }
   },
   { "route": "POST /api/auth/invite/accept", "access": { "kind": "public", "stepUp": false } },
+  { "route": "POST /api/auth/login", "access": { "kind": "public", "stepUp": false } },
   {
     "route": "POST /api/auth/logout",
     "access": { "kind": "session", "scopes": ["ANY"], "stepUp": false }
+  },
+  {
+    "route": "POST /api/auth/mfa",
+    "access": { "kind": "session", "scopes": ["PRE_MFA"], "stepUp": false }
   },
   {
     "route": "POST /api/users",
