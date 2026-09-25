@@ -98,11 +98,41 @@ const KEY_VALUE = new RegExp(
 const JSON_PAIR = /"([^"\\]{1,64})"\s*:\s*("(?:[^"\\]|\\.)*"|[^,}\]\s]+)/g;
 
 /**
- * Redacts credentials embedded in free text: `Bearer x`, `//user:pass@`, `key=value` pairs and
- * JSON `"key":"value"` pairs whose key is sensitive. Idempotent.
+ * Prose form of a sensitive value: a sensitive word directly followed by `is`, `was` or `:`
+ * and a token with no `=` (the `KEY_VALUE`/`JSON_PAIR` patterns above already cover `key=value`
+ * and `"key":"value"`; this catches `password is hunter2` / `password: hunter2` — free text that
+ * embeds a secret without an assignment operator). Reuses `SENSITIVE_KEY_TOKENS`, so it carries
+ * the same whole-word-only, no-substring guarantee and the same accepted over-redaction of
+ * `serial`/`pin`/`otp` as bare words. It also over-redacts the word right after "is"/"was"/":"
+ * even when that word isn't itself a secret (e.g. "the password is required" redacts
+ * "required") — accepted, same tradeoff already documented for `serial`/`pin` above; a more
+ * precise heuristic (distinguishing "password is required" from "password is hunter2") isn't
+ * worth the added complexity for a phase 2 defense-in-depth pass.
+ *
+ * The negative lookahead excludes `bearer`/`basic`/`digest` from the captured value: without it,
+ * `Authorization: Bearer [REDACTED]` (already fully handled by `AUTH_SCHEME`, which runs first)
+ * collides with the "authorization" + ":" case here and eats the scheme word itself, corrupting
+ * an already-correct result into `Authorization: [REDACTED] [REDACTED]`.
+ */
+const SENSITIVE_PROSE = new RegExp(
+  String.raw`\b(${SENSITIVE_KEY_TOKENS.join('|')})\b(\s*(?:is|was)\s+|\s*:\s*)(?!(?:bearer|basic|digest)\b)(\S+)`,
+  'gi',
+);
+
+function scrubProse(text: string): string {
+  return text.replace(
+    SENSITIVE_PROSE,
+    (_match, word: string, sep: string) => `${word}${sep}${REDACTED}`,
+  );
+}
+
+/**
+ * Redacts credentials embedded in free text: `Bearer x`, `//user:pass@`, `key=value` pairs,
+ * JSON `"key":"value"` pairs whose key is sensitive, and prose (`password is hunter2`,
+ * `secret: abc123`). Idempotent.
  */
 export function scrubString(text: string): string {
-  return scrubJsonPairs(scrubUrl(text.replace(AUTH_SCHEME, `$1 ${REDACTED}`)));
+  return scrubProse(scrubJsonPairs(scrubUrl(text.replace(AUTH_SCHEME, `$1 ${REDACTED}`))));
 }
 
 /** Redacts `user:password@` and sensitive query parameters of a URL (or any text holding one). */

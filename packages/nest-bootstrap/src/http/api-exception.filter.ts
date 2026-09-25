@@ -1,6 +1,12 @@
 import { ArgumentsHost, Catch, ExceptionFilter, HttpException, Logger } from '@nestjs/common';
 import * as Sentry from '@sentry/nestjs';
-import { API_ERROR_CODES, type ApiError, type ApiErrorCode, isDomainError } from '@tms/contracts';
+import {
+  API_ERROR_CODES,
+  type ApiError,
+  type ApiErrorCode,
+  isDomainError,
+  scrubString,
+} from '@tms/contracts';
 import type { Response } from 'express';
 
 const BY_STATUS: Partial<Record<number, ApiErrorCode>> = {
@@ -70,12 +76,15 @@ export function toApiError(exception: unknown): ApiError {
     const code = BY_STATUS[status];
     if (code === 'VALIDATION_FAILED') return envelope(code, 'Malformed request');
     const response = exception.getResponse();
-    const message =
+    const rawMessage =
       typeof response === 'object' &&
       response !== null &&
       typeof (response as { message?: unknown }).message === 'string'
         ? (response as { message: string }).message
         : exception.message;
+    // Defense-in-depth: every current HttpException message is a static developer literal, but
+    // scrub it anyway so a future one built from request data can never leak a secret verbatim.
+    const message = scrubString(rawMessage);
     // An unlisted 4xx (405, 406, 418, 431, ...) keeps its status; only the code is generic.
     return code
       ? envelope(code, message)

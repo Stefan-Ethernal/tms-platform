@@ -168,6 +168,43 @@ describe('scrubString', () => {
     expect(scrubString(once)).toBe(once);
     expect(once).not.toMatch(/x|=y|u:p|pin=1|"z"/);
   });
+
+  describe('prose (a sensitive word directly followed by is/was/:, no assignment operator)', () => {
+    it.each([
+      ['database password is hunter2', 'database password is [REDACTED]'],
+      ['the secret: abc123', 'the secret: [REDACTED]'],
+      ['login was blocked, totp was 123456', 'login was blocked, totp was [REDACTED]'],
+    ])('%s -> %s', (input, expected) => {
+      expect(scrubString(input)).toBe(expected);
+    });
+
+    it('does not touch a sensitive word not directly followed by is/was/: (a word sits between)', () => {
+      // "field" breaks the adjacency the pattern requires (`\bword\b` immediately, only
+      // whitespace allowed, before is/was/:), so this benign phrase is left alone.
+      expect(scrubString('the password field is required')).toBe('the password field is required');
+    });
+
+    it('accepts over-redaction of the word right after is/was/: even when it is not a secret', () => {
+      // Same tradeoff already accepted for `serial`/`pin` as bare words (see SENSITIVE_PROSE's
+      // own comment): a more precise heuristic isn't worth the complexity.
+      expect(scrubString('the password is required')).toBe('the password is [REDACTED]');
+    });
+
+    it('does not re-touch a value already redacted by the key=value or JSON-pair passes', () => {
+      expect(scrubString('password=hunter2')).toBe('password=[REDACTED]');
+      expect(scrubString('{"password":"hunter2"}')).toBe('{"password":"[REDACTED]"}');
+    });
+
+    it('does not eat the scheme word of an already-scrubbed Authorization header', () => {
+      // "Authorization" is itself a sensitive word directly followed by ":", which would
+      // otherwise collide with AUTH_SCHEME's own "Bearer x" -> "Bearer [REDACTED]" pass and
+      // turn it into "Authorization: [REDACTED] [REDACTED]".
+      expect(scrubString('Authorization: Bearer eyJhbGciOi.abc_def-ghi')).toBe(
+        'Authorization: Bearer [REDACTED]',
+      );
+      expect(scrubString('authorization: abc123')).toBe('authorization: [REDACTED]');
+    });
+  });
 });
 
 describe('scrubString property', () => {

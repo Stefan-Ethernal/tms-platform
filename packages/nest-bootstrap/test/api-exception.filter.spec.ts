@@ -55,6 +55,12 @@ class ProbeController {
   @Get('teapot') teapot() {
     throw new HttpException("I'm a teapot", 418);
   }
+  @Get('leaky-mapped') leakyMapped() {
+    throw new HttpException('password is hunter2', 403);
+  }
+  @Get('leaky-unmapped') leakyUnmapped() {
+    throw new HttpException('password is hunter2', 418);
+  }
 }
 
 @Module({
@@ -156,6 +162,24 @@ describe('ApiExceptionFilter + ZodValidationPipe', () => {
       statusCode: 418,
       code: 'REQUEST_REJECTED',
       message: "I'm a teapot",
+    });
+  });
+
+  it('scrubs a secret embedded in an HttpException message (BY_STATUS-mapped path)', async () => {
+    const res = await request(app.getHttpServer()).get('/probe/leaky-mapped').expect(403);
+    expect(res.body).toEqual({
+      statusCode: 403,
+      code: 'FORBIDDEN',
+      message: 'password is [REDACTED]',
+    });
+  });
+
+  it('scrubs a secret embedded in an HttpException message (REQUEST_REJECTED fallback)', async () => {
+    const res = await request(app.getHttpServer()).get('/probe/leaky-unmapped').expect(418);
+    expect(res.body).toEqual({
+      statusCode: 418,
+      code: 'REQUEST_REJECTED',
+      message: 'password is [REDACTED]',
     });
   });
 
