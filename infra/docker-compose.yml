@@ -77,6 +77,14 @@ services:
       SESSION_IDLE_MINUTES: '60'
       SESSION_ABSOLUTE_HOURS: '12'
       SESSION_COOKIE_SECURE: 'true'
+      SMTP_URL: smtp://mailpit:1025
+      MAIL_FROM: 'TMS <no-reply@tms.local>'
+      ADMIN_WEB_URL: 'http://localhost:${CADDY_ADMIN_PORT:-8080}'
+      INVITE_TTL_HOURS: '72'
+      SECRETS_ENC_KEYS: ${SECRETS_ENC_KEYS:?set in infra/.env}
+      SECRETS_ENC_ACTIVE_KEY_ID: ${SECRETS_ENC_ACTIVE_KEY_ID:-stack1}
+      PASSWORD_PEPPER: ${PASSWORD_PEPPER:?set in infra/.env}
+      TOTP_ISSUER: TMS
     # Read-only root filesystem (deviation 10); the writable paths are the logs volume and /tmp.
     read_only: true
     tmpfs:

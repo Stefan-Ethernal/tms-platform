@@ -21,10 +21,11 @@ describe('@tms/domain package surface', () => {
     expect(manifest.types).toBeUndefined();
   });
 
-  it('@tms/domain/shared exports exactly the phase 1 names', () => {
+  it('@tms/domain/shared exports exactly the phase 1 and phase 2 names', () => {
     expect(Object.keys(shared).sort()).toEqual([
       'AUDIT_APP',
       'AccessGuard',
+      'AfterCommitError',
       'AuditService',
       'AuthThrottle',
       'Clock',
@@ -33,6 +34,9 @@ describe('@tms/domain package surface', () => {
       'DenyAllPrincipalResolver',
       'FixedClock',
       'InMemoryMailSender',
+      'MAIL_REQUESTED',
+      'MailModule',
+      'MailNotifier',
       'MailSender',
       'PRINCIPAL_REQUEST_KEY',
       'PrincipalResolver',
@@ -44,11 +48,14 @@ describe('@tms/domain package surface', () => {
       'RequireStepUp',
       'SharedModule',
       'SkipSessionTouch',
+      'SmtpMailSender',
       'SystemClock',
       'TransactionHost',
       'Transactional',
       'USER_AGENT_MAX_LENGTH',
+      'UnitOfWork',
       'readRouteAccess',
+      'renderMail',
       'scanRouteAccess',
     ]);
   });

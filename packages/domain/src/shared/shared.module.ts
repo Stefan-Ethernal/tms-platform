@@ -2,6 +2,7 @@ import type { ServerResponse } from 'node:http';
 import { type DynamicModule, Global, Module } from '@nestjs/common';
 import { ClsPluginTransactional } from '@nestjs-cls/transactional';
 import { TransactionalAdapterPrisma } from '@nestjs-cls/transactional-adapter-prisma';
+import { EventEmitterModule } from '@nestjs/event-emitter';
 import { ClsModule } from 'nestjs-cls';
 import type { AuditApp } from '@tms/contracts';
 import { PrismaService } from '@tms/db/nest';
@@ -9,6 +10,7 @@ import { resolveRequestId } from '@tms/logger';
 import { AUDIT_APP, AuditService } from './audit.service';
 import { Clock, SystemClock } from './clock';
 import { type IncomingRequest, REQUEST_CONTEXT_KEY, requestContextFrom } from './request-context';
+import { UnitOfWork } from './tx/unit-of-work';
 
 export interface SharedModuleOptions {
   // SYSTEM is written directly by the permission sync and the seed, never by an app's own
@@ -23,6 +25,7 @@ export class SharedModule {
     return {
       module: SharedModule,
       imports: [
+        EventEmitterModule.forRoot(),
         ClsModule.forRoot({
           global: true,
           middleware: {
@@ -50,8 +53,9 @@ export class SharedModule {
         { provide: AUDIT_APP, useValue: app },
         { provide: Clock, useClass: SystemClock },
         AuditService,
+        UnitOfWork,
       ],
-      exports: [AuditService, Clock],
+      exports: [AuditService, Clock, UnitOfWork],
     };
   }
 }

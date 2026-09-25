@@ -1,6 +1,11 @@
 export { AdminAuthModule } from './admin-auth.module';
 export { AUTH_OPTIONS, type AdminAuthOptions } from './auth/options';
+export { PASSWORD_HASHER, RANDOM_SOURCE, SECRET_CIPHER, TOTP_PROVIDER } from './auth/ports';
+export { assertStrongPassword, passwordFieldErrors, totpAad } from './auth/credentials';
+export { EnrollmentService } from './auth/enrollment/enrollment.service';
+export { InviteService } from './auth/invites/invite.service';
 export { evaluateStaffSession } from './auth/sessions/evaluate-session';
 export { SessionCookie } from './auth/sessions/session-cookie';
 export { type IssuedSession, SessionService } from './auth/sessions/session.service';
 export { StaffSessionResolver } from './auth/sessions/staff-session.resolver';
+export { ActionTokenService } from './auth/tokens/action-token.service';
