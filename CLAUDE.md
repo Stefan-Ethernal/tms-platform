@@ -35,16 +35,34 @@ typescript-eslint its own classic compiler. Remove both workarounds once 7.1 shi
 
 ## Where things live
 
-- `apps/api-admin`, `apps/api-driver` — NestJS; controllers only, no logic
-- `apps/web-admin`, `apps/web-driver` — React SPAs
-- `packages/config` — shared tsconfig/eslint/jest presets; `packages/db` — Prisma schema and migrations
-- Present: `packages/contracts`, `db` (+ `/testing`, `/nest`), `logger`, `nest-bootstrap`, `domain`
-  (`/shared` only); later `auth-core` (phase 2), `domain/admin` (3b), `domain/checkin` (4), `ui` (6)
-- `packages/nest-bootstrap` — env, app setup, health, Sentry (apps stay at `main.ts` + `AppModule`)
-- `infra/` — compose, Dockerfiles, Caddyfile, `smoke.sh`; `e2e/` — Playwright
-- `tools/scripts` — hygiene + gitleaks wrapper; `tools/claude-plugin` — Claude plugin and its tests
-- `docs/adr/` — decisions; `docs/architecture.md` — technical docs; `docs/efficiency/` — journals
-- `docs/client/` — client documents, gitignored, never committed, never modified by Claude
+```
+apps/
+  api-admin/       NestJS back-office API — controllers only, no logic; main.ts + AppModule
+  api-driver/      NestJS kiosk API — same shape, only @tms/domain/{checkin,shared}
+  web-admin/       React SPA, admin
+  web-driver/      React SPA, kiosk
+packages/
+  contracts/       zod schemas, permission/audit catalogues, error envelope (ESM)
+  db/              Prisma schema, migrations, seed — /testing (Testcontainers), /nest (PrismaModule)
+  auth-core/       Nest-free crypto/policy primitives (tokens, TOTP, password hashing, lockout)
+  logger/          pino module — redaction, request id, rolling files
+  nest-bootstrap/  env, app setup, health, Sentry, HTTP foundation (filter, pipe, guards)
+  domain/          business logic — /shared (tx, audit, mail) and /admin (staff auth, users, roles)
+  config/          shared tsconfig/eslint/jest presets
+infra/             compose, Dockerfiles, Caddyfile, smoke.sh
+e2e/               Playwright
+tools/
+  scripts/         hygiene + gitleaks wrapper
+  claude-plugin/   Claude plugin and its tests
+docs/
+  adr/             decisions
+  architecture.md  technical docs
+  efficiency/      journals
+  client/          client documents — gitignored, never committed, never modified by Claude
+```
+
+Not yet present: `packages/domain/checkin` (phase 4, driver kiosk check-in), `packages/ui`
+(phase 6, shared design system).
 
 ## Rules
 
@@ -60,7 +78,7 @@ typescript-eslint its own classic compiler. Remove both workarounds once 7.1 shi
 - Libraries consumed by the SPAs (`contracts`, later `ui`) are ESM; Nest-aware libraries are
   CommonJS (`nest-library.json`); package `exports` carry `types` + `default`.
 - UI strings only through i18n keys; `en` is the only bundle for now.
-- Versions come from the pnpm catalog; never `latest`. Secrets only in env; `.env.example` per app.
+- Versions come from the pnpm catalog (single source, see Stack). Secrets only in env; `.env.example` per app.
 - Conventional commits; feature branch; PR to `main` filled from the PR template by the `pr` skill.
 - The client is referred to as "the client"; no client name anywhere in the repository, including
   commit messages, PR titles, branch names, fixtures and seed data. Convention only, no mechanical
