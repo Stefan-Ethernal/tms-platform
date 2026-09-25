@@ -73,6 +73,7 @@ services:
       LOG_DIR: /var/log/tms
       LOG_FILE_ENABLED: 'true'
       TRUST_PROXY: 'loopback, uniquelocal'
+      ADMIN_WEB_ORIGINS: 'http://localhost:8080,http://localhost:${CADDY_ADMIN_PORT:-8080}'
     # Read-only root filesystem (deviation 10); the writable paths are the logs volume and /tmp.
     read_only: true
     tmpfs:

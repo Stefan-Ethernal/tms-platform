@@ -855,6 +855,9 @@ importers:
       '@nestjs-cls/transactional-adapter-prisma':
         specifier: 'catalog:'
         version: 2.0.0(@nestjs-cls/transactional@4.0.0(@nestjs/common@12.1.0(reflect-metadata@0.2.2)(rxjs@7.8.2)(supports-color@7.2.0))(@nestjs/core@12.1.0)(nestjs-cls@7.0.0(@nestjs/common@12.1.0(reflect-metadata@0.2.2)(rxjs@7.8.2)(supports-color@7.2.0))(@nestjs/core@12.1.0)(reflect-metadata@0.2.2)(rxjs@7.8.2))(reflect-metadata@0.2.2)(rxjs@7.8.2))(@prisma/client@7.10.0(prisma@7.10.0(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(typescript@6.0.3))(typescript@6.0.3))(nestjs-cls@7.0.0(@nestjs/common@12.1.0(reflect-metadata@0.2.2)(rxjs@7.8.2)(supports-color@7.2.0))(@nestjs/core@12.1.0)(reflect-metadata@0.2.2)(rxjs@7.8.2))(prisma@7.10.0(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(typescript@6.0.3))
+      '@tms/auth-core':
+        specifier: workspace:*
+        version: link:../auth-core
       '@tms/contracts':
         specifier: workspace:*
         version: link:../contracts
@@ -883,6 +886,9 @@ importers:
       '@tms/config':
         specifier: workspace:*
         version: link:../config
+      '@types/express':
+        specifier: 'catalog:'
+        version: 5.0.6
       '@types/jest':
         specifier: 'catalog:'
         version: 30.0.0
