@@ -145,6 +145,12 @@ describe('scrubString', () => {
     ['url "https://x/a?token=abc123" failed', 'abc123'],
     ['db "postgresql://tms:s3cret@db/tms" down', 's3cret'],
     ['token=abc123\nnext line', 'abc123'],
+    // Prose form (no `=`, no quotes around the secret) sitting right before the JSON string's
+    // closing quote: SENSITIVE_PROSE's value group must stop there, not run past it — an
+    // unbounded `\S+` here would consume the closing quote and every field after it, corrupting
+    // the line into invalid JSON without even re-leaking the secret.
+    ['password: hunter2', 'hunter2'],
+    ['database password is hunter2', 'hunter2'],
   ])('keeps a JSON log line valid and drops the secret: %s', (msg, secret) => {
     const line = scrubString(JSON.stringify({ msg, level: 30 }));
     expect(line).not.toContain(secret);
@@ -167,6 +173,73 @@ describe('scrubString', () => {
     const once = scrubString('Bearer x token=y https://u:p@h/?pin=1 {"secret":"z"}');
     expect(scrubString(once)).toBe(once);
     expect(once).not.toMatch(/x|=y|u:p|pin=1|"z"/);
+  });
+
+  describe('prose (a sensitive word directly followed by is/was/:, no assignment operator)', () => {
+    it.each([
+      ['database password is hunter2', 'database password is [REDACTED]'],
+      ['the secret: abc123', 'the secret: [REDACTED]'],
+      ['login was blocked, totp was 123456', 'login was blocked, totp was [REDACTED]'],
+    ])('%s -> %s', (input, expected) => {
+      expect(scrubString(input)).toBe(expected);
+    });
+
+    it('does not touch a sensitive word not directly followed by is/was/: (a word sits between)', () => {
+      // "field" breaks the adjacency the pattern requires (`\bword\b` immediately, only
+      // whitespace allowed, before is/was/:), so this benign phrase is left alone.
+      expect(scrubString('the password field is required')).toBe('the password field is required');
+    });
+
+    it('accepts over-redaction of the word right after is/was/: even when it is not a secret', () => {
+      // Same tradeoff already accepted for `serial`/`pin` as bare words (see SENSITIVE_PROSE's
+      // own comment): a more precise heuristic isn't worth the complexity.
+      expect(scrubString('the password is required')).toBe('the password is [REDACTED]');
+    });
+
+    it('does not re-touch a value already redacted by the key=value or JSON-pair passes', () => {
+      expect(scrubString('password=hunter2')).toBe('password=[REDACTED]');
+      expect(scrubString('{"password":"hunter2"}')).toBe('{"password":"[REDACTED]"}');
+    });
+
+    it('bounds the value so a prose secret embedded in a real JSON log line does not corrupt it', () => {
+      // Regression: an earlier version of SENSITIVE_PROSE used an unbounded `\S+`, which ran
+      // straight through the closing quote of `msg`'s JSON string value and swallowed every
+      // field after it (level, reqId, context), producing invalid JSON.
+      const line = JSON.stringify({
+        level: 30,
+        msg: 'database password: hunter2',
+        reqId: 'r-1',
+        context: 'AuthService',
+      });
+      const scrubbed = scrubString(line);
+      expect(() => JSON.parse(scrubbed) as unknown).not.toThrow();
+      expect(JSON.parse(scrubbed)).toEqual({
+        level: 30,
+        msg: 'database password: [REDACTED]',
+        reqId: 'r-1',
+        context: 'AuthService',
+      });
+      expect(scrubbed).not.toContain('hunter2');
+    });
+
+    it('documents a known, accepted gap: a word between the sensitive word and is/was/: leaks', () => {
+      // Not a regression: SENSITIVE_PROSE requires the sensitive word to be *immediately*
+      // adjacent (only whitespace) to is/was/:. "value" sitting in between means this phrase
+      // never matches, so the secret passes through unredacted. Documented here so a future
+      // reader sees this is a disclosed, accepted limitation of the prose heuristic (same
+      // complexity/precision tradeoff as the over-redaction case above), not an oversight.
+      expect(scrubString('the password value is hunter2')).toContain('hunter2');
+    });
+
+    it('does not eat the scheme word of an already-scrubbed Authorization header', () => {
+      // "Authorization" is itself a sensitive word directly followed by ":", which would
+      // otherwise collide with AUTH_SCHEME's own "Bearer x" -> "Bearer [REDACTED]" pass and
+      // turn it into "Authorization: [REDACTED] [REDACTED]".
+      expect(scrubString('Authorization: Bearer eyJhbGciOi.abc_def-ghi')).toBe(
+        'Authorization: Bearer [REDACTED]',
+      );
+      expect(scrubString('authorization: abc123')).toBe('authorization: [REDACTED]');
+    });
   });
 });
 

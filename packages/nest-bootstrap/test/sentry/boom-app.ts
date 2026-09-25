@@ -1,15 +1,18 @@
 import { Controller, Get, HttpException, type INestApplication, Query } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import type { App } from 'supertest/types';
-import { CoreModule, configureApp, createEnvSchema, loadEnv } from '../../src';
+import { z } from 'zod';
+import { CoreModule, configureApp, createEnvSchema, loadEnv, zodDto } from '../../src';
 import { UNUSED_DATABASE_URL } from './support';
+
+class BoomQuery extends zodDto(z.object({ token: z.string() })) {}
 
 @Controller('boom')
 class BoomController {
   /** The secret reaches the message at runtime, as request data would. */
   @Get()
-  boom(@Query('token') token: string): never {
-    throw new Error(`boom token=${token}`);
+  boom(@Query() query: BoomQuery): never {
+    throw new Error(`boom token=${query.token}`);
   }
 
   @Get('teapot')

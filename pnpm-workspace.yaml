@@ -52,6 +52,10 @@ catalog:
   '@types/express': ^5.0.6
   # exact: 11.0.0 is the first release with Nest 12 peers (a bare add picks 10.75.2)
   '@sentry/nestjs': 11.0.0
+  # http
+  cookie-parser: 1.4.7
+  '@types/cookie-parser': 1.4.10
+  helmet: 8.3.0
   # logging
   nestjs-pino: ^5.2.0
   pino: ^10.3.1

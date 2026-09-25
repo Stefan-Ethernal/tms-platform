@@ -31,6 +31,8 @@
     "@tms/contracts": "workspace:*",
     "@tms/db": "workspace:*",
     "@tms/logger": "workspace:*",
+    "cookie-parser": "catalog:",
+    "helmet": "catalog:",
     "zod": "catalog:"
   },
   "peerDependencies": {
@@ -47,6 +49,8 @@
     "@nestjs/testing": "catalog:",
     "@testcontainers/postgresql": "catalog:",
     "@tms/config": "workspace:*",
+    "@types/cookie-parser": "catalog:",
+    "@types/express": "catalog:",
     "@types/jest": "catalog:",
     "@types/node": "catalog:",
     "@types/supertest": "catalog:",

@@ -14,6 +14,7 @@ const DEFAULTS = {
   DATABASE_URL: 'postgresql://tms:tms@localhost:5432/tms',
   HEALTH_DB_TIMEOUT_MS: 1000,
   PORT: 3001,
+  TRUST_PROXY: 'loopback',
 };
 
 /** loadEnv's error: every offending variable, in schema order, joined with '; '. */

@@ -403,9 +403,9 @@ replacement for `sendDefaultPii`), no traces and no local variables. `beforeSend
 `scrubSentryEvent`, built on the same `@tms/contracts/security` scrub list as the logs, over
 headers, query string, URL, request data, messages, exception values, extra, contexts, tags and
 breadcrumbs; it drops cookies and removes the user on `api-driver` (no user context on the kiosk).
-`SentryGlobalFilter`, registered by `CoreModule`, reports unexpected errors only; `HttpException`s
-are not reported and response bodies do not change. The SPAs and source-map upload follow in
-phase 8.
+`ApiExceptionFilter` (phase 2, ADR 0009), registered by `CoreModule`, answers with the error
+envelope and reports unexpected (5xx) errors to Sentry only; `HttpException`s are not reported.
+The SPAs and source-map upload follow in phase 8.
 
 ### Audit
 

@@ -75,6 +75,7 @@ describe('bootstrapApi', () => {
         DATABASE_URL: 'postgresql://tms:tms@127.0.0.1:9/tms',
         HEALTH_DB_TIMEOUT_MS: 1000,
         PORT: port,
+        TRUST_PROXY: 'loopback',
       });
       // NODE_ENV defaults to development, so listenHost() binds the loopback interface only.
       const httpServer = app?.getHttpServer() as Server | undefined;
@@ -82,7 +83,7 @@ describe('bootstrapApi', () => {
       const res = await request(`http://127.0.0.1:${port}`).get('/api/does-not-exist').expect(404);
       expect(res.body).toEqual({
         statusCode: 404,
-        error: 'Not Found',
+        code: 'NOT_FOUND',
         message: 'Cannot GET /api/does-not-exist',
       });
       expect(res.headers['x-request-id']).toMatch(UUID);

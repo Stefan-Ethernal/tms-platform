@@ -37,7 +37,7 @@ export async function bootstrapApi<E extends BaseEnv>({
     return undefined;
   }
   const app = await NestFactory.create(module(env), { bufferLogs: true });
-  configureApp(app);
+  configureApp(app, env);
   await app.listen(env.PORT, listenHost(env));
   return app;
 }

@@ -30,6 +30,8 @@ export const baseEnvSchema = z.object({
   SENTRY_DSN: z.preprocess(emptyAsUndefined, z.url({ protocol: /^https?$/ }).optional()),
   SENTRY_ENVIRONMENT: z.preprocess(emptyAsUndefined, z.string().min(1).max(64).optional()),
   SENTRY_RELEASE: z.preprocess(emptyAsUndefined, z.string().min(1).max(200).optional()),
+  // Express `trust proxy`: 'false', a hop count or a preset/subnet list (Caddy in compose).
+  TRUST_PROXY: z.string().min(1).default('loopback'),
 });
 
 /** The schema of one API: the shared variables plus PORT with the app's default. */

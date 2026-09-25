@@ -24,7 +24,7 @@ export function registerSmokeSuite({
         expect(res.headers()['content-type']).toContain('application/json');
         expect(await res.json()).toMatchObject({
           statusCode: 404,
-          error: 'Not Found',
+          code: 'NOT_FOUND',
         });
       }
     });
