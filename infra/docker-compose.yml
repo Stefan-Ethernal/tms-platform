@@ -74,6 +74,9 @@ services:
       LOG_FILE_ENABLED: 'true'
       TRUST_PROXY: 'loopback, uniquelocal'
       ADMIN_WEB_ORIGINS: 'http://localhost:8080,http://localhost:${CADDY_ADMIN_PORT:-8080}'
+      SESSION_IDLE_MINUTES: '60'
+      SESSION_ABSOLUTE_HOURS: '12'
+      SESSION_COOKIE_SECURE: 'true'
     # Read-only root filesystem (deviation 10); the writable paths are the logs volume and /tmp.
     read_only: true
     tmpfs:
