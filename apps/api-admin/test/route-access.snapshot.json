@@ -5,6 +5,14 @@
   },
   { "route": "GET /api/health", "access": { "kind": "public", "stepUp": false } },
   {
+    "route": "GET /api/roles",
+    "access": { "kind": "permissions", "codes": ["roles:read"], "stepUp": false }
+  },
+  {
+    "route": "GET /api/users",
+    "access": { "kind": "permissions", "codes": ["users:read"], "stepUp": false }
+  },
+  {
     "route": "POST /api/auth/enrollment/password",
     "access": { "kind": "session", "scopes": ["ENROLLMENT"], "stepUp": false }
   },
@@ -20,6 +28,10 @@
   {
     "route": "POST /api/auth/logout",
     "access": { "kind": "session", "scopes": ["ANY"], "stepUp": false }
+  },
+  {
+    "route": "POST /api/users",
+    "access": { "kind": "permissions", "codes": ["users:create"], "stepUp": false }
   },
   {
     "route": "POST /api/users/:id/invite",

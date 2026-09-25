@@ -1,12 +1,36 @@
-import { Controller, HttpCode, Param, Post } from '@nestjs/common';
-import type { ActionTokenIssuedResponse } from '@tms/contracts';
-import { InviteService } from '@tms/domain/admin';
+import { Body, Controller, Get, HttpCode, Param, Post } from '@nestjs/common';
+import type {
+  ActionTokenIssuedResponse,
+  CreateUserResponse,
+  UserListResponse,
+} from '@tms/contracts';
+import { InviteService, UserAdminService } from '@tms/domain/admin';
 import { CurrentPrincipal, type Principal, RequirePermissions } from '@tms/domain/shared';
-import { UserIdParamDto } from '../../auth/dto';
+import { CreateUserDto, UserIdParamDto } from '../../auth/dto';
 
 @Controller('users')
 export class UserAdminController {
-  constructor(private readonly invites: InviteService) {}
+  constructor(
+    private readonly invites: InviteService,
+    private readonly users: UserAdminService,
+  ) {}
+
+  @RequirePermissions('users:create')
+  @Post()
+  @HttpCode(201)
+  async create(
+    @Body() body: CreateUserDto,
+    @CurrentPrincipal() actor: Principal,
+  ): Promise<CreateUserResponse> {
+    const { userId, expiresAt } = await this.users.create(actor, body);
+    return { userId, expiresAt: expiresAt.toISOString() };
+  }
+
+  @RequirePermissions('users:read')
+  @Get()
+  async list(): Promise<UserListResponse> {
+    return { users: await this.users.list() };
+  }
 
   @RequirePermissions('users:invite')
   @Post(':id/invite')
