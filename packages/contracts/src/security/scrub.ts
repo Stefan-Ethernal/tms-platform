@@ -107,15 +107,30 @@ const JSON_PAIR = /"([^"\\]{1,64})"\s*:\s*("(?:[^"\\]|\\.)*"|[^,}\]\s]+)/g;
  * even when that word isn't itself a secret (e.g. "the password is required" redacts
  * "required") — accepted, same tradeoff already documented for `serial`/`pin` above; a more
  * precise heuristic (distinguishing "password is required" from "password is hunter2") isn't
- * worth the added complexity for a phase 2 defense-in-depth pass.
+ * worth the added complexity for a phase 2 defense-in-depth pass. Also disclosed and accepted:
+ * the sensitive word must be *immediately* adjacent (only whitespace) to is/was/:, so
+ * "the password value is hunter2" (a word in between) is not caught — same shape of gap as the
+ * `field` case below, not a regression.
  *
  * The negative lookahead excludes `bearer`/`basic`/`digest` from the captured value: without it,
  * `Authorization: Bearer [REDACTED]` (already fully handled by `AUTH_SCHEME`, which runs first)
  * collides with the "authorization" + ":" case here and eats the scheme word itself, corrupting
- * an already-correct result into `Authorization: [REDACTED] [REDACTED]`.
+ * an already-correct result into `Authorization: [REDACTED] [REDACTED]`. It sits right before the
+ * captured value (after the separator group), so it tests the value itself, not the text right
+ * after the word — putting it before the separator group would never see "bearer" (the separator
+ * is there instead) and silently stop excluding anything.
+ *
+ * The captured value is bounded the same way `AUTH_SCHEME`'s own value class is (see that
+ * pattern's comment above): `scrubString` runs on finished, serialized JSON log lines
+ * (`packages/logger/src/options.ts`'s `streamWrite: scrubString`), so an unbounded `\S+` would
+ * greedily consume through a JSON string's closing quote, any following keys and the closing
+ * brace, corrupting the line into invalid JSON — not re-leaking the secret, but silently
+ * dropping every field after it. Stopping at whitespace, JSON-structural characters
+ * (`,`, `;`, `)`, `}`, `]`) and quote/backslash characters keeps the match inside one JSON string
+ * or one bare word, same as `AUTH_SCHEME` already does for `Bearer <token>`.
  */
 const SENSITIVE_PROSE = new RegExp(
-  String.raw`\b(${SENSITIVE_KEY_TOKENS.join('|')})\b(\s*(?:is|was)\s+|\s*:\s*)(?!(?:bearer|basic|digest)\b)(\S+)`,
+  String.raw`\b(${SENSITIVE_KEY_TOKENS.join('|')})\b(\s*(?:is|was)\s+|\s*:\s*)(?!(?:bearer|basic|digest)\b)([^\s,;"'\\)}\]]+)`,
   'gi',
 );
 

@@ -145,6 +145,12 @@ describe('scrubString', () => {
     ['url "https://x/a?token=abc123" failed', 'abc123'],
     ['db "postgresql://tms:s3cret@db/tms" down', 's3cret'],
     ['token=abc123\nnext line', 'abc123'],
+    // Prose form (no `=`, no quotes around the secret) sitting right before the JSON string's
+    // closing quote: SENSITIVE_PROSE's value group must stop there, not run past it — an
+    // unbounded `\S+` here would consume the closing quote and every field after it, corrupting
+    // the line into invalid JSON without even re-leaking the secret.
+    ['password: hunter2', 'hunter2'],
+    ['database password is hunter2', 'hunter2'],
   ])('keeps a JSON log line valid and drops the secret: %s', (msg, secret) => {
     const line = scrubString(JSON.stringify({ msg, level: 30 }));
     expect(line).not.toContain(secret);
@@ -193,6 +199,36 @@ describe('scrubString', () => {
     it('does not re-touch a value already redacted by the key=value or JSON-pair passes', () => {
       expect(scrubString('password=hunter2')).toBe('password=[REDACTED]');
       expect(scrubString('{"password":"hunter2"}')).toBe('{"password":"[REDACTED]"}');
+    });
+
+    it('bounds the value so a prose secret embedded in a real JSON log line does not corrupt it', () => {
+      // Regression: an earlier version of SENSITIVE_PROSE used an unbounded `\S+`, which ran
+      // straight through the closing quote of `msg`'s JSON string value and swallowed every
+      // field after it (level, reqId, context), producing invalid JSON.
+      const line = JSON.stringify({
+        level: 30,
+        msg: 'database password: hunter2',
+        reqId: 'r-1',
+        context: 'AuthService',
+      });
+      const scrubbed = scrubString(line);
+      expect(() => JSON.parse(scrubbed) as unknown).not.toThrow();
+      expect(JSON.parse(scrubbed)).toEqual({
+        level: 30,
+        msg: 'database password: [REDACTED]',
+        reqId: 'r-1',
+        context: 'AuthService',
+      });
+      expect(scrubbed).not.toContain('hunter2');
+    });
+
+    it('documents a known, accepted gap: a word between the sensitive word and is/was/: leaks', () => {
+      // Not a regression: SENSITIVE_PROSE requires the sensitive word to be *immediately*
+      // adjacent (only whitespace) to is/was/:. "value" sitting in between means this phrase
+      // never matches, so the secret passes through unredacted. Documented here so a future
+      // reader sees this is a disclosed, accepted limitation of the prose heuristic (same
+      // complexity/precision tradeoff as the over-redaction case above), not an oversight.
+      expect(scrubString('the password value is hunter2')).toContain('hunter2');
     });
 
     it('does not eat the scheme word of an already-scrubbed Authorization header', () => {
