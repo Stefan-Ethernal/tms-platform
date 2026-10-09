@@ -33,7 +33,7 @@ typescript-eslint its own classic compiler. Remove both workarounds once 7.1 shi
 - `pnpm turbo run <task> --filter=<package>` — scoped runs (this form is allowlisted; `pnpm --filter` is not)
 - `pnpm compose --profile full up -d --build && infra/smoke.sh --full && pnpm e2e` — production-like
   stack behind Caddy (:8080 admin, :8081 kiosk) plus Playwright
-- Plugins `core`, `typescript`, `nestjs`, `react`, `sql` (`@ethernal`) and `ethernal-nest-react@tms` are enabled in `.claude/settings.json` and load once the project is trusted in an interactive session; until then use `pnpm claude`
+- Plugins `core`, `typescript`, `nestjs`, `react`, `sql` (`@ethernal`) are enabled in `.claude/settings.json` and load once the project is trusted in an interactive session
 
 ## Layout
 
@@ -58,7 +58,6 @@ infra/             compose, Dockerfiles, Caddyfile, smoke.sh
 e2e/               Playwright
 tools/
   scripts/         hygiene + gitleaks wrapper
-  claude-plugin/   Claude plugin and its tests
 docs/
   adr/             decisions
   architecture.md  technical docs
@@ -97,10 +96,10 @@ Not yet present: `packages/domain/checkin` (phase 4, driver kiosk check-in), `pa
   repetition that should be a skill or hook; kitchen-sink sessions without `/clear`; a third
   correction instead of a restart; unscoped exploration in the main context (use a subagent);
   `claude -p` for CI-style automation; worktrees for parallel sessions.
-- Process per phase: `superpowers:writing-plans` → `plan-critic` agent (fresh, read-only) →
+- Process per phase: `superpowers:writing-plans` → `core:plan-critic` agent (fresh, read-only) →
   `superpowers:subagent-driven-development`. Log every task and critic pass in
   `docs/efficiency/<lane>.md` as it happens.
-- Auth/RBAC/session/token PRs need `security-reviewer`; all others `/code-review` (`low` for small PRs).
+- Auth/RBAC/session/token PRs need `core:security-reviewer` with `.claude/rules/security.md`; all others `/code-review` (`low` for small PRs).
 
 ## Token budget
 
@@ -108,7 +107,7 @@ Not yet present: `packages/domain/checkin` (phase 4, driver kiosk check-in), `pa
   `task-NN.md` per task, `review.md` (deviations, reconcile, critic). Agents get the index and
   their own task file, never the whole plan.
 - The plan for phase N+1 is written only after phase N is merged.
-- Main session on Sonnet; Opus (not the 1M variant) for design; Fable only for `plan-critic`, once
+- Main session on Sonnet; Opus (not the 1M variant) for design; Fable only for `core:plan-critic`, once
   per phase. `/clear` once `/context` passes ~150k. At most 2 parallel sessions.
 - Set `model` on every subagent. A task whose file carries the code: Sonnet implementer plus one
   combined Sonnet review; Opus review only for auth/RBAC tasks.

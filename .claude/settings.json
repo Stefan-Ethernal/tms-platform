@@ -52,12 +52,6 @@
     ]
   },
   "extraKnownMarketplaces": {
-    "tms": {
-      "source": {
-        "source": "directory",
-        "path": "./tools/claude-plugin"
-      }
-    },
     "ethernal": {
       "source": {
         "source": "github",
@@ -67,7 +61,6 @@
     }
   },
   "enabledPlugins": {
-    "ethernal-nest-react@tms": true,
     "core@ethernal": true,
     "nestjs@ethernal": true,
     "react@ethernal": true,

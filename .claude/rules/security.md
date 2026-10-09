@@ -1,23 +1,18 @@
 ---
-name: security-reviewer
-description: Read-only security reviewer for pull requests that touch authentication, RBAC, sessions, tokens, secrets or the kiosk device model. Use before a PR leaves draft (mandatory for those PRs per CLAUDE.md). Returns ranked findings with file:line evidence and a concrete fix; never edits files.
-tools: Read, Grep, Glob, Bash
-model: inherit
+paths:
+  - 'apps/api-*/**'
+  - 'packages/auth-core/**'
+  - 'packages/domain/**'
+  - 'packages/nest-bootstrap/**'
 ---
 
-You are the security reviewer of the TMS platform. You review one pull request (or a diff
-range) for vulnerabilities and security regressions **before** it merges. You never edit files
-and you never praise. Bash is for read-only commands only (`git diff`, `git log`, `git show`,
-`ls`, `grep`); you do not run installs, builds, tests, formatters or anything that writes.
+# Security checklist (TMS)
 
-## Inputs
-
-You receive a diff range (for example `main...HEAD`) or a PR number, and the paths of the spec
-(`docs/superpowers/specs/*.md`), the phase plan and CLAUDE.md. Read the whole diff first, then
-every changed file in full, then the spec sections the PR names (section 8 authentication,
-section 9 RBAC, section 13 security list).
-
-## Checklist (apply every item the diff touches; say "not touched" for the rest)
+Project-specific items for authentication, RBAC, sessions, tokens, secrets and the kiosk device
+model. `core:security-reviewer` applies them on top of the generic `nestjs`, `react` and `sql`
+checklists; pass this file to it. Apply every item the diff touches and say "not touched" for
+the rest. Spec references: `docs/superpowers/specs/2026-09-23-rbac-checkin-design.md` section 8
+(authentication), section 9 (RBAC), section 13 (security list).
 
 1. **Brute force and lockout**: every credential check (password, TOTP, recovery code, action
    token, PIN) runs under the same lockout counter and rate limit; a correct password alone never
@@ -45,9 +40,9 @@ expiresAt > now`), consumed only by POST, never logged, never in query strings (
    and also set at enrollment; attempts per pre-session are capped; secrets are encrypted with
    AES-256-GCM with AAD bound to the user and a key id; the pending secret lives only in the
    enrollment session; recovery codes are hashed and single-use.
-8. **Authorization**: every route carries exactly one route-access marker (fail-closed); permission
-   checks are AND; step-up is enforced where the spec or plan requires it; object-level checks:
-   actor vs target (IDOR), self role change forbidden, last admin checked under a row lock
+8. **Authorization**: every route carries exactly one route-access marker (fail-closed, ADR 0010);
+   permission checks are AND; step-up is enforced where the spec or plan requires it; object-level
+   checks: actor vs target (IDOR), self role change forbidden, last admin checked under a row lock
    (`SELECT ... FOR NO KEY UPDATE`) taken in one fixed order (admins by id, then actor and target
    by id), role `appliesTo` matches the user kind; driver JWTs and driver users are rejected on the
    admin API and staff cookies on the kiosk API.
@@ -68,17 +63,3 @@ expiresAt > now`), consumed only by POST, never logged, never in query strings (
 14. **Tests**: each item above that the diff touches has a negative test (wrong code, reused
     token, parallel requests, foreign Origin, missing permission, stale step-up); flag any
     security claim in the PR description that no test exercises.
-
-## Output format
-
-A markdown table, most severe first, then one summary line:
-
-| #   | Severity | Finding | Evidence | Proposed fix |
-| --- | -------- | ------- | -------- | ------------ |
-
-Severity: **CRITICAL** = exploitable now (auth bypass, secret exposure, privilege escalation);
-**HIGH** = exploitable under realistic conditions or a missing required control; **MEDIUM** =
-defence-in-depth gap or missing negative test; **LOW** = hardening or clarity. Evidence is a
-`file:line` from the diff or a command you ran with its output. Proposed fix is a concrete change.
-At most 25 findings. End with: `Verdict: BLOCK | FIX BEFORE MERGE | OK` and
-`Summary: N findings (C critical, H high, M medium, L low)`.
