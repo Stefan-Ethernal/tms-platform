@@ -3,6 +3,7 @@ import {
   CreateUserRequestSchema,
   LoginRequestSchema,
   MfaRequestSchema,
+  RoleIdParamSchema,
   SetPasswordRequestSchema,
   TotpConfirmRequestSchema,
   UserIdParamSchema,
@@ -11,6 +12,7 @@ import { zodDto } from '@tms/nest-bootstrap';
 
 export class AcceptInviteDto extends zodDto(AcceptInviteRequestSchema) {}
 export class UserIdParamDto extends zodDto(UserIdParamSchema) {}
+export class RoleIdParamDto extends zodDto(RoleIdParamSchema) {}
 export class SetPasswordDto extends zodDto(SetPasswordRequestSchema) {}
 export class TotpConfirmDto extends zodDto(TotpConfirmRequestSchema) {}
 export class CreateUserDto extends zodDto(CreateUserRequestSchema) {}
