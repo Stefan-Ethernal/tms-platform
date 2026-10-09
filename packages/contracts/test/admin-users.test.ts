@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   CreateUserRequestSchema,
   CreateUserResponseSchema,
+  RoleDetailResponseSchema,
   RoleListResponseSchema,
   RoleSummarySchema,
   UserListResponseSchema,
@@ -78,5 +79,25 @@ describe('admin user/role schemas', () => {
     expect(RoleSummarySchema.safeParse(role).success).toBe(true);
     expect(RoleSummarySchema.safeParse({ ...role, key: null }).success).toBe(true);
     expect(RoleListResponseSchema.safeParse({ roles: [role] }).success).toBe(true);
+  });
+
+  it('describes a role detail and rejects an extra field', () => {
+    const detail = {
+      id: '0190a0b0-0000-7000-8000-000000000001',
+      key: 'operator',
+      name: 'Operator',
+      appliesTo: 'STAFF',
+      permissions: [
+        { code: 'users:read', group: 'users', name: 'View users', description: 'See users.' },
+      ],
+    };
+    expect(RoleDetailResponseSchema.safeParse(detail).success).toBe(true);
+    expect(RoleDetailResponseSchema.safeParse({ ...detail, extra: 1 }).success).toBe(false);
+    expect(
+      RoleDetailResponseSchema.safeParse({
+        ...detail,
+        permissions: [{ ...detail.permissions[0], granted: true }],
+      }).success,
+    ).toBe(false);
   });
 });

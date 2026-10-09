@@ -1,4 +1,5 @@
 import request from 'supertest';
+import { permissionCodesForAudience, resolveRolePermissions, SEEDED_ROLES } from '@tms/contracts';
 import type { PrismaService } from '@tms/db/nest';
 import { createAdminTestApp, type AdminTestApp, ORIGIN } from './support/app';
 import { createStaffUser, loginAs, roleIdByKey, seedBase, waitForMail } from './support/fixtures';
@@ -17,6 +18,8 @@ describe('admin user and role administration (API)', () => {
     http().post('/api/users').set('Origin', ORIGIN).set('Cookie', cookie).send(body);
   const listUsers = (cookie = adminCookie) =>
     http().get('/api/users').set('Origin', ORIGIN).set('Cookie', cookie);
+  const getRole = (id: string, cookie = adminCookie) =>
+    http().get(`/api/roles/${id}`).set('Origin', ORIGIN).set('Cookie', cookie);
   const listRoles = (cookie = adminCookie) =>
     http().get('/api/roles').set('Origin', ORIGIN).set('Cookie', cookie);
 
@@ -76,6 +79,7 @@ describe('admin user and role administration (API)', () => {
     ).expect(403);
     await listUsers(operatorCookie).expect(403);
     await listRoles(operatorCookie).expect(403);
+    await getRole(roleId, operatorCookie).expect(403);
   });
 
   it('422 when the role does not apply to STAFF users, and no User row is created', async () => {
@@ -123,5 +127,48 @@ describe('admin user and role administration (API)', () => {
     const res = await listRoles().expect(200);
     const keys = (res.body as { roles: Array<{ key: string | null }> }).roles.map((r) => r.key);
     expect(keys.sort()).toEqual(['admin', 'operator']);
+  });
+
+  describe('GET /api/roles/:id', () => {
+    type Detail = {
+      id: string;
+      key: string | null;
+      name: string;
+      appliesTo: string;
+      permissions: Array<{ code: string; group: string; name: string; description: string }>;
+    };
+
+    it("shows Operator's seeded permissions, sorted by code", async () => {
+      const operator = SEEDED_ROLES.find((r) => r.key === 'operator')!;
+      const res = await getRole(await roleIdByKey(prisma, 'operator')).expect(200);
+      const body = res.body as Detail;
+      expect(body).toMatchObject({ key: 'operator', name: 'Operator', appliesTo: 'STAFF' });
+      const codes = body.permissions.map((p) => p.code);
+      expect(codes).toHaveLength(15);
+      expect(codes).toEqual([...resolveRolePermissions(operator)].sort());
+      expect(Object.keys(body.permissions[0]!).sort()).toEqual([
+        'code',
+        'description',
+        'group',
+        'name',
+      ]);
+    });
+
+    it('shows Admin with every STAFF permission code', async () => {
+      const res = await getRole(await roleIdByKey(prisma, 'admin')).expect(200);
+      const codes = (res.body as Detail).permissions.map((p) => p.code);
+      expect(codes).toEqual([...permissionCodesForAudience('STAFF')].sort());
+    });
+
+    it('404 NOT_FOUND for the Driver role and for an unknown id', async () => {
+      const driver = await getRole(await roleIdByKey(prisma, 'driver')).expect(404);
+      expect(codeOf(driver)).toBe('NOT_FOUND');
+      const unknown = await getRole('0190a0b0-0000-7000-8000-00000000ffff').expect(404);
+      expect(codeOf(unknown)).toBe('NOT_FOUND');
+    });
+
+    it('422 VALIDATION_FAILED for a malformed id (project convention for invalid input)', async () => {
+      expect(codeOf(await getRole('not-a-uuid').expect(422))).toBe('VALIDATION_FAILED');
+    });
   });
 });
