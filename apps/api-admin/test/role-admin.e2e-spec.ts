@@ -93,6 +93,16 @@ describe('GET /api/roles/:id (API)', () => {
     expect(codeOf(res)).toBe('UNAUTHENTICATED');
   });
 
+  it.each(['PRE_MFA', 'ENROLLMENT'] as const)(
+    '401 for an admin whose session scope is %s, not FULL',
+    async (scope) => {
+      const admin = await createStaffUser(prisma, { role: 'admin' });
+      const cookie = await loginAs(t.app, admin.id, scope);
+      const res = await getRole(await roleIdByKey(prisma, 'admin'), cookie).expect(401);
+      expect(codeOf(res)).toBe('UNAUTHENTICATED');
+    },
+  );
+
   it('404 for an unknown UUID', async () => {
     const res = await getRole(randomUUID()).expect(404);
     expect(codeOf(res)).toBe('NOT_FOUND');
