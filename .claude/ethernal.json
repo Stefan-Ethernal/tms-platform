@@ -1,0 +1,62 @@
+{
+  "schemaVersion": 1,
+  "gates": {
+    "fast": {
+      "run": "pnpm run lint && pnpm run typecheck && pnpm run test"
+    },
+    "full": {
+      "run": "pnpm run verify"
+    }
+  },
+  "sourceGlobs": [
+    "apps/**",
+    "packages/**"
+  ],
+  "protectedBranches": [
+    "main"
+  ],
+  "requiredChecks": [
+    "db-drift",
+    "hygiene",
+    "verify",
+    "e2e",
+    "pr-title"
+  ],
+  "onEdit": [
+    {
+      "glob": [
+        "*.js",
+        "*.jsx",
+        "*.mjs",
+        "*.cjs",
+        "*.ts",
+        "*.tsx",
+        "*.mts",
+        "*.cts"
+      ],
+      "run": "node_modules/.bin/eslint --fix --no-warn-ignored {file}"
+    },
+    {
+      "glob": [
+        "*.js",
+        "*.jsx",
+        "*.mjs",
+        "*.cjs",
+        "*.ts",
+        "*.tsx",
+        "*.mts",
+        "*.cts",
+        "*.css",
+        "*.scss",
+        "*.less"
+      ],
+      "run": "node_modules/.bin/prettier --write --log-level warn {file}"
+    }
+  ],
+  "issues": {
+    "trackers": [
+      "github"
+    ],
+    "jiraKeys": []
+  }
+}

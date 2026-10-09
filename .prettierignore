@@ -11,3 +11,8 @@ docs/efficiency
 playwright-report
 test-results
 apps/*/public/mockServiceWorker.js
+# Rendered by /core:bootstrap; reformatting them shows up as drift in doctor mode
+.claude/ethernal
+.claude/ethernal.json
+.claude/rules/workflows.md
+.github/rulesets

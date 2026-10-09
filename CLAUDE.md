@@ -1,5 +1,7 @@
 # TMS Platform
 
+## Overview
+
 Terminal management platform POC: RBAC, user administration with invite + TOTP, driver kiosk
 check-in (card + PIN), FIFO loading queue, audit log. Spec:
 `docs/superpowers/specs/2026-09-23-rbac-checkin-design.md`. Plans: `docs/superpowers/plans/`.
@@ -31,11 +33,14 @@ typescript-eslint its own classic compiler. Remove both workarounds once 7.1 shi
 - `pnpm turbo run <task> --filter=<package>` — scoped runs (this form is allowlisted; `pnpm --filter` is not)
 - `pnpm compose --profile full up -d --build && infra/smoke.sh --full && pnpm e2e` — production-like
   stack behind Caddy (:8080 admin, :8081 kiosk) plus Playwright
-- Plugin `ethernal-nest-react@tms` is enabled in `.claude/settings.json` and loads once the project is trusted in an interactive session; until then use `pnpm claude`
+- Plugins `core`, `typescript`, `nestjs`, `react`, `sql` (`@ethernal`) are enabled in `.claude/settings.json` and load once the project is trusted in an interactive session
 
-## Where things live
+## Layout
 
 ```
+.claude/           settings, core plugin's ethernal.json, rules/ (path-scoped rules)
+.github/           CI workflows, ruleset, PR template, Dependabot
+.husky/            git hooks
 apps/
   api-admin/       NestJS back-office API — controllers only, no logic; main.ts + AppModule
   api-driver/      NestJS kiosk API — same shape, only @tms/domain/{checkin,shared}
@@ -53,7 +58,6 @@ infra/             compose, Dockerfiles, Caddyfile, smoke.sh
 e2e/               Playwright
 tools/
   scripts/         hygiene + gitleaks wrapper
-  claude-plugin/   Claude plugin and its tests
 docs/
   adr/             decisions
   architecture.md  technical docs
@@ -92,10 +96,10 @@ Not yet present: `packages/domain/checkin` (phase 4, driver kiosk check-in), `pa
   repetition that should be a skill or hook; kitchen-sink sessions without `/clear`; a third
   correction instead of a restart; unscoped exploration in the main context (use a subagent);
   `claude -p` for CI-style automation; worktrees for parallel sessions.
-- Process per phase: `superpowers:writing-plans` → `plan-critic` agent (fresh, read-only) →
+- Process per phase: `superpowers:writing-plans` → `core:plan-critic` agent (fresh, read-only) →
   `superpowers:subagent-driven-development`. Log every task and critic pass in
   `docs/efficiency/<lane>.md` as it happens.
-- Auth/RBAC/session/token PRs need `security-reviewer`; all others `/code-review` (`low` for small PRs).
+- Auth/RBAC/session/token PRs need `core:security-reviewer` with `.claude/rules/security.md`; all others `/code-review` (`low` for small PRs).
 
 ## Token budget
 
@@ -103,9 +107,29 @@ Not yet present: `packages/domain/checkin` (phase 4, driver kiosk check-in), `pa
   `task-NN.md` per task, `review.md` (deviations, reconcile, critic). Agents get the index and
   their own task file, never the whole plan.
 - The plan for phase N+1 is written only after phase N is merged.
-- Main session on Sonnet; Opus (not the 1M variant) for design; Fable only for `plan-critic`, once
+- Main session on Sonnet; Opus (not the 1M variant) for design; Fable only for `core:plan-critic`, once
   per phase. `/clear` once `/context` passes ~150k. At most 2 parallel sessions.
 - Set `model` on every subagent. A task whose file carries the code: Sonnet implementer plus one
   combined Sonnet review; Opus review only for auth/RBAC tasks.
 - Scoped `pnpm turbo run <task> --filter=<package>` while working; full `pnpm verify` before the
   PR; tail long outputs.
+
+## Verification
+
+- Before a push: `pnpm run lint && pnpm run typecheck && pnpm run test` (the fast gate).
+- Before a PR: `pnpm run verify` (the full gate).
+- API (nestjs): E2E tests against a real database (Testcontainers), then scripted
+  HTTP requests against the running service.
+- UI (react): Playwright E2E tests where the project has them, else Vitest component
+  tests, then a `react:chrome-verify` walkthrough with 2 to 4 screenshots.
+- Database (sql): migrations applied, and rolled back where the tool has a down path, on a
+  disposable database.
+- Then ask Claude to run its verify skill: a Scenario, Layer, Outcome table from real output.
+- Results come from real output; anything not run is reported as not run.
+
+## Don't
+
+- Don't push to `main` or force-push; open a PR.
+- Don't merge with a red or missing required check.
+- Don't read, print or commit `.env` files.
+- Don't describe unverified behaviour as verified.
