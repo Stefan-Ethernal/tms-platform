@@ -55,3 +55,19 @@ export const RoleListResponseSchema = z.strictObject({
   roles: z.array(RoleSummarySchema),
 });
 export type RoleListResponse = z.infer<typeof RoleListResponseSchema>;
+
+export const RoleIdParamSchema = z.strictObject({ id: z.uuid() });
+
+export const RolePermissionSchema = z.strictObject({
+  code: z.string(),
+  group: z.string(),
+  name: z.string(),
+  description: z.string(),
+});
+export type RolePermission = z.infer<typeof RolePermissionSchema>;
+
+/** One STAFF role with the permissions it grants, sorted by code. */
+export const RoleDetailResponseSchema = RoleSummarySchema.extend({
+  permissions: z.array(RolePermissionSchema),
+}).strict();
+export type RoleDetailResponse = z.infer<typeof RoleDetailResponseSchema>;

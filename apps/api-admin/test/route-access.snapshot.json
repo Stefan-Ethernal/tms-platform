@@ -9,6 +9,10 @@
     "access": { "kind": "permissions", "codes": ["roles:read"], "stepUp": false }
   },
   {
+    "route": "GET /api/roles/:id",
+    "access": { "kind": "permissions", "codes": ["roles:read"], "stepUp": false }
+  },
+  {
     "route": "GET /api/users",
     "access": { "kind": "permissions", "codes": ["users:read"], "stepUp": false }
   },
