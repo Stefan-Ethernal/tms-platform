@@ -16,4 +16,3 @@ apps/*/public/mockServiceWorker.js
 .claude/ethernal.json
 .claude/rules/workflows.md
 .github/rulesets
-.github/workflows/release.yml

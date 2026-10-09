@@ -89,7 +89,7 @@
     "ciGate": true,
     "dependabot": true,
     "secretsHygiene": true,
-    "release": "github",
+    "release": "none",
     "releaseTriggers": [
       "release-please",
       "tag",
