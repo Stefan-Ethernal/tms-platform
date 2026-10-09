@@ -55,8 +55,7 @@ export class RoleAdminService {
     });
     if (!role) throw new DomainError('NOT_FOUND', 'Role not found');
 
-    const { permissions, ...rest } = role;
-    const held = permissions.map((p) => p.permission);
+    const held = role.permissions.map((p) => p.permission);
     const groups = PERMISSION_GROUPS.map((group) => ({
       group,
       permissions: held
@@ -69,6 +68,14 @@ export class RoleAdminService {
         }))
         .sort((a, b) => (a.code < b.code ? -1 : a.code > b.code ? 1 : 0)),
     })).filter((g) => g.permissions.length > 0);
-    return { ...rest, groups };
+    // Field by field: a column later added to the select must not reach the client unnoticed.
+    return {
+      id: role.id,
+      key: role.key,
+      name: role.name,
+      description: role.description,
+      appliesTo: role.appliesTo,
+      groups,
+    };
   }
 }
