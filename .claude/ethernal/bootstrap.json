@@ -1,0 +1,112 @@
+{
+  "schemaVersion": 1,
+  "renderedWith": "0.3.0",
+  "answers": {
+    "plugins": [
+      "nestjs",
+      "react",
+      "sql",
+      "typescript"
+    ],
+    "superpowers": true,
+    "marketplace": "github",
+    "profile": "standard",
+    "gateFast": "pnpm run lint && pnpm run typecheck && pnpm run test",
+    "gateFull": "pnpm run verify",
+    "gateFastQuiet": null,
+    "gateFullQuiet": null,
+    "sourceGlobs": [
+      "apps/**",
+      "packages/**"
+    ],
+    "onEdit": [
+      {
+        "glob": [
+          "*.js",
+          "*.jsx",
+          "*.mjs",
+          "*.cjs",
+          "*.ts",
+          "*.tsx",
+          "*.mts",
+          "*.cts"
+        ],
+        "run": "node_modules/.bin/eslint --fix --no-warn-ignored {file}"
+      },
+      {
+        "glob": [
+          "*.js",
+          "*.jsx",
+          "*.mjs",
+          "*.cjs",
+          "*.ts",
+          "*.tsx",
+          "*.mts",
+          "*.cts",
+          "*.css",
+          "*.scss",
+          "*.less"
+        ],
+        "run": "node_modules/.bin/prettier --write --log-level warn {file}"
+      }
+    ],
+    "requiredChecks": [
+      "db-drift",
+      "hygiene",
+      "verify",
+      "e2e",
+      "pr-title"
+    ],
+    "authGlobs": [],
+    "merge": "auto",
+    "signedCommits": false,
+    "issues": {
+      "trackers": [
+        "github"
+      ],
+      "jiraKeys": []
+    },
+    "protectedBranches": [
+      "main"
+    ],
+    "commitScopes": [],
+    "model": "default",
+    "mcp": false,
+    "stackPlanned": {
+      "frontend": null,
+      "backend": null,
+      "database": null,
+      "testing": null,
+      "orm": null,
+      "language": null,
+      "kind": null,
+      "router": null,
+      "migrations": null
+    },
+    "layout": "single",
+    "packageManager": "pnpm",
+    "gitHook": false,
+    "ciGate": true,
+    "dependabot": true,
+    "secretsHygiene": true,
+    "release": "github",
+    "releaseTriggers": [
+      "release-please",
+      "tag",
+      "dispatch"
+    ],
+    "releaseBranches": [
+      "main"
+    ],
+    "dockerRegistries": [
+      "ghcr"
+    ],
+    "dockerPlatforms": [
+      "linux/amd64",
+      "linux/arm64"
+    ],
+    "dockerImage": "stefan-ethernal/tms-platform",
+    "cosign": false,
+    "journal": true
+  }
+}

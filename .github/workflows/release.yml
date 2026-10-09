@@ -1,0 +1,298 @@
+# Rendered by /core:bootstrap (ethernal core plugin). Yours to edit: a re-run never overwrites it.
+# Merging the release-please PR creates a draft release and its tag.
+# A person pushing a v* tag on a commit of a release branch starts here.
+# A manual run (gh workflow run release.yml -f version=1.2.3) releases the
+# branch's HEAD; its tag is reserved once the gate passes, before any
+# artifact goes out, and removed again if a later job fails or is
+# cancelled, so a failed or cancelled run leaves no tag.
+# Every path runs the same jobs: the release is public only after the full gate
+# (and the images) passed.
+name: release
+
+on:
+  push:
+    branches: [main]
+    tags: ["v[0-9]+.[0-9]+.[0-9]+*"]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Bare version to release, like 1.2.3, no leading v (run it on a release branch)
+        required: true
+        type: string
+
+permissions: {}
+
+concurrency:
+  group: release-${{ github.event_name == 'workflow_dispatch' && format('v{0}', inputs.version) || github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  release-please:
+    if: ${{ github.event_name == 'push' && github.ref_type == 'branch' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+    outputs:
+      created: ${{ steps.release.outputs.release_created }}
+      tag: ${{ steps.release.outputs.tag_name }}
+    steps:
+      - id: release
+        uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5.0.0
+        with:
+          target-branch: ${{ github.ref_name }}
+
+  validate:
+    needs: release-please
+    if: ${{ !cancelled() && (needs.release-please.outputs.created == 'true' || github.ref_type == 'tag' || github.event_name == 'workflow_dispatch') }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    outputs:
+      tag: ${{ steps.check.outputs.tag }}
+      version: ${{ steps.check.outputs.version }}
+      latest: ${{ steps.check.outputs.latest }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - id: check
+        name: Semver tag on a release branch, equal to the version files
+        env:
+          TAG: ${{ needs.release-please.outputs.tag || inputs.version || github.ref_name }}
+          RELEASE_BRANCHES: "main"
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
+            if [[ "$TAG" == v* ]]; then
+              echo "::error::version: give the bare version (1.2.3), not $TAG."
+              exit 1
+            fi
+            TAG="v$TAG"
+          fi
+          semver='^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$'
+          if [[ ! "$TAG" =~ $semver ]]; then
+            echo "::error::The tag is not v<major>.<minor>.<patch> (semver)."
+            exit 1
+          fi
+          if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
+            if git rev-parse -q --verify "refs/tags/$TAG" > /dev/null; then
+              echo "::error::The tag $TAG exists already; release the next version."
+              exit 1
+            fi
+          else
+            if [ "$(git rev-parse "refs/tags/$TAG^{commit}")" != "$GITHUB_SHA" ]; then
+              echo "::error::The tag does not point at the commit this run builds."
+              exit 1
+            fi
+          fi
+          export VERSION="${TAG#v}"
+          python3 - <<'PY'
+          import json, os, re, subprocess, sys, tomllib
+          from pathlib import Path
+
+          def git(*args):
+              return subprocess.run(["git", *args], capture_output=True, text=True, check=True).stdout
+
+          def gh(*args):
+              return subprocess.run(["gh", *args], capture_output=True, text=True, check=True).stdout
+
+          def regex(branch_filter):  # GitHub branch filters: * stops at /, ** does not
+              parts = re.split(r"(\*\*|\*)", branch_filter)
+              return "".join({"**": ".*", "*": "[^/]*"}.get(p, re.escape(p)) for p in parts)
+
+          def release(version):  # (major, minor, patch) of a release; None for a pre-release
+              match = re.fullmatch(r"v?(\d+)\.(\d+)\.(\d+)", version)
+              return tuple(int(n) for n in match.groups()) if match else None
+
+          filters = os.environ["RELEASE_BRANCHES"]
+          ref = os.environ["GITHUB_REF"]
+          manual = os.environ["GITHUB_EVENT_NAME"] == "workflow_dispatch"
+          if manual and not ref.startswith("refs/heads/"):  # dispatched on a tag (review D10)
+              print(f"::error::A manual run must start on a release branch, not {ref}.")
+              sys.exit(1)
+          if ref.startswith("refs/heads/"):  # a branch push (a merged release PR) or a manual run
+              branches = [ref[len("refs/heads/"):]]
+              problem = f"{branches[0]} is not a release branch ({filters})."
+          else:  # a pushed tag: every remote branch that holds the commit
+              sha = os.environ["GITHUB_SHA"]
+              branches = git("branch", "-r", "--format=%(refname:lstrip=3)", "--contains", sha).split()
+              problem = f"The tagged commit is on no release branch ({filters})."
+          if not any(re.fullmatch(regex(f), b) for f in filters.split() for b in branches):
+              print(f"::error::{problem}")
+              sys.exit(1)
+          FIELDS = [
+              ("package.json", ("version",)),
+              ("Cargo.toml", ("package", "version")),
+              ("pyproject.toml", ("project", "version")),
+              ("pyproject.toml", ("tool", "poetry", "version")),
+          ]
+          version = os.environ["VERSION"]
+          wrong = []
+          for name, keys in FIELDS:
+              path = Path(name)
+              if not path.is_file():
+                  continue
+              text = path.read_text(encoding="utf-8")
+              value = json.loads(text) if name.endswith(".json") else tomllib.loads(text)
+              for key in keys:
+                  value = value.get(key) if isinstance(value, dict) else None
+              if isinstance(value, str) and value != version:
+                  wrong.append(f"{name} {'.'.join(keys)} is {value}")
+          if wrong:
+              print(f"::error::The tag says {version}, but " + "; ".join(wrong))
+              sys.exit(1)
+          fields = "tagName,isDraft,isPrerelease"
+          released = json.loads(gh("release", "list", "--json", fields, "--limit", "1000"))
+          others = [
+              release(entry["tagName"])
+              for entry in released
+              if not entry["isDraft"] and not entry["isPrerelease"]
+          ]
+          mine = release(version)
+          newest = mine is not None and all(mine >= other for other in others if other)
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
+              output.write(f"latest={str(newest).lower()}\n")  # the image's latest tag
+          PY
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+  gate:
+    needs: validate
+    if: ${{ !cancelled() && needs.validate.result == 'success' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: lts/*
+          package-manager-cache: false
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run verify
+
+  reserve-tag:
+    needs: [validate, gate]
+    if: ${{ !cancelled() && needs.gate.result == 'success' && github.event_name == 'workflow_dispatch' }}
+    environment: release
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
+      - name: Tag the released commit (manual run)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ needs.validate.outputs.tag }}
+        run: gh api "repos/$GH_REPO/git/refs" -f ref="refs/tags/$TAG" -f sha="$GITHUB_SHA"
+
+  publish:
+    needs: [release-please, validate, gate, reserve-tag]
+    if: ${{ !cancelled() && needs.gate.result == 'success' && (needs.reserve-tag.result == 'success' || needs.reserve-tag.result == 'skipped') }}
+    environment: release
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - name: Confirm the reserved tag still points here (manual run)
+        if: ${{ github.event_name == 'workflow_dispatch' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ needs.validate.outputs.tag }}
+        run: |
+          set -euo pipefail
+          sha=$(gh api "repos/$GH_REPO/git/ref/tags/$TAG" --jq .object.sha)
+          if [ "$sha" != "$GITHUB_SHA" ]; then
+            echo "::error::The tag $TAG no longer points at this commit. Re-run all jobs, or start a new release."
+            exit 1
+          fi
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Publish the GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ needs.validate.outputs.tag }}
+          VERSION: ${{ needs.validate.outputs.version }}
+          DRAFTED: ${{ needs.release-please.outputs.created }}
+          LATEST: ${{ needs.validate.outputs.latest }}
+        run: |
+          set -euo pipefail
+          flags=(--latest="$LATEST")  # GitHub's make_latest defaults to true
+          if [[ "${VERSION%+*}" == *-* ]]; then flags+=(--prerelease); fi
+          if [ "$DRAFTED" = "true" ]; then
+            gh release edit "$TAG" --draft=false "${flags[@]}"
+            exit 0
+          fi
+          python3 - > "$RUNNER_TEMP/notes.md" <<'PY'
+          import os, re
+          from pathlib import Path
+
+          path = Path("CHANGELOG.md")
+          lines, keep = [], False
+          heading = re.compile(r"^##? \[?v?" + re.escape(os.environ["VERSION"]) + r"\]?(?=[\s(]|$)")
+          for line in path.read_text(encoding="utf-8").splitlines() if path.is_file() else []:
+              if keep and re.match(r"^##? ", line):
+                  break
+              if heading.match(line):
+                  keep = True
+              elif keep:
+                  lines.append(line)
+          notes = "\n".join(lines).strip()
+          if notes:
+              print(notes)
+          PY
+          if [ -s "$RUNNER_TEMP/notes.md" ]; then
+            gh release create "$TAG" --verify-tag --title "$TAG" "${flags[@]}" --notes-file "$RUNNER_TEMP/notes.md"
+          else
+            gh release create "$TAG" --verify-tag --title "$TAG" "${flags[@]}" --generate-notes
+          fi
+
+  cleanup:
+    needs: [validate, reserve-tag, publish]
+    if: ${{ (failure() || cancelled()) && needs.reserve-tag.result == 'success' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
+      - name: Delete the reserved tag (failed run)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ needs.validate.outputs.tag }}
+        run: |
+          set -euo pipefail
+          sha=$(gh api "repos/$GH_REPO/git/ref/tags/$TAG" --jq .object.sha 2>/dev/null) || sha=
+          if [ "$sha" != "$GITHUB_SHA" ]; then
+            echo "The tag $TAG no longer points at the commit this run built (or is gone); nothing to clean up."
+            exit 0
+          fi
+          err=$(mktemp)
+          if draft=$(gh api "repos/$GH_REPO/releases/tags/$TAG" --jq .draft 2>"$err"); then
+            if [ "$draft" = "false" ]; then
+              echo "The tag $TAG already has a published release; nothing to clean up."
+              exit 0
+            fi
+          elif grep -q "HTTP 404" "$err"; then
+            echo "No release claims $TAG; deleting the reserved tag."
+          else
+            echo "::error::Could not check for a release on $TAG: $(cat "$err")"
+            exit 1
+          fi
+          gh api -X DELETE "repos/$GH_REPO/git/refs/tags/$TAG"

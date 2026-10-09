@@ -1,5 +1,7 @@
 # TMS Platform
 
+## Overview
+
 Terminal management platform POC: RBAC, user administration with invite + TOTP, driver kiosk
 check-in (card + PIN), FIFO loading queue, audit log. Spec:
 `docs/superpowers/specs/2026-09-23-rbac-checkin-design.md`. Plans: `docs/superpowers/plans/`.
@@ -31,11 +33,14 @@ typescript-eslint its own classic compiler. Remove both workarounds once 7.1 shi
 - `pnpm turbo run <task> --filter=<package>` — scoped runs (this form is allowlisted; `pnpm --filter` is not)
 - `pnpm compose --profile full up -d --build && infra/smoke.sh --full && pnpm e2e` — production-like
   stack behind Caddy (:8080 admin, :8081 kiosk) plus Playwright
-- Plugin `ethernal-nest-react@tms` is enabled in `.claude/settings.json` and loads once the project is trusted in an interactive session; until then use `pnpm claude`
+- Plugins `core`, `typescript`, `nestjs`, `react`, `sql` (`@ethernal`) and `ethernal-nest-react@tms` are enabled in `.claude/settings.json` and load once the project is trusted in an interactive session; until then use `pnpm claude`
 
-## Where things live
+## Layout
 
 ```
+.claude/           settings, core plugin's ethernal.json, rules/ (path-scoped rules)
+.github/           CI workflows, ruleset, PR template, Dependabot
+.husky/            git hooks
 apps/
   api-admin/       NestJS back-office API — controllers only, no logic; main.ts + AppModule
   api-driver/      NestJS kiosk API — same shape, only @tms/domain/{checkin,shared}
@@ -109,3 +114,23 @@ Not yet present: `packages/domain/checkin` (phase 4, driver kiosk check-in), `pa
   combined Sonnet review; Opus review only for auth/RBAC tasks.
 - Scoped `pnpm turbo run <task> --filter=<package>` while working; full `pnpm verify` before the
   PR; tail long outputs.
+
+## Verification
+
+- Before a push: `pnpm run lint && pnpm run typecheck && pnpm run test` (the fast gate).
+- Before a PR: `pnpm run verify` (the full gate).
+- API (nestjs): E2E tests against a real database (Testcontainers), then scripted
+  HTTP requests against the running service.
+- UI (react): Playwright E2E tests where the project has them, else Vitest component
+  tests, then a `react:chrome-verify` walkthrough with 2 to 4 screenshots.
+- Database (sql): migrations applied, and rolled back where the tool has a down path, on a
+  disposable database.
+- Then ask Claude to run its verify skill: a Scenario, Layer, Outcome table from real output.
+- Results come from real output; anything not run is reported as not run.
+
+## Don't
+
+- Don't push to `main` or force-push; open a PR.
+- Don't merge with a red or missing required check.
+- Don't read, print or commit `.env` files.
+- Don't describe unverified behaviour as verified.

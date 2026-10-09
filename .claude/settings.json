@@ -26,7 +26,11 @@
       "Bash(gh run list:*)",
       "Bash(gh run view:*)",
       "Bash(gh run watch:*)",
-      "Bash(git branch --show-current)"
+      "Bash(git branch --show-current)",
+      "Bash(pnpm run lint)",
+      "Bash(pnpm run typecheck)",
+      "Bash(pnpm run test)",
+      "Bash(pnpm run verify)"
     ],
     "deny": [
       "Edit(/docs/client/**)",
@@ -36,11 +40,39 @@
       "Edit(/**/.env.development)",
       "Edit(/**/.env.test)",
       "Edit(/**/.env.production)",
-      "Edit(/**/.env.*.local)"
+      "Edit(/**/.env.*.local)",
+      "Read(.env)",
+      "Read(.env.*)",
+      "Read(!.env*.example)",
+      "Read(!.env*.sample)",
+      "Edit(.env)",
+      "Edit(.env.*)",
+      "Edit(!.env*.example)",
+      "Edit(!.env*.sample)"
     ]
   },
   "extraKnownMarketplaces": {
-    "tms": { "source": { "source": "directory", "path": "./tools/claude-plugin" } }
+    "tms": {
+      "source": {
+        "source": "directory",
+        "path": "./tools/claude-plugin"
+      }
+    },
+    "ethernal": {
+      "source": {
+        "source": "github",
+        "repo": "Ethernal-Tech/claude-playbook"
+      },
+      "autoUpdate": true
+    }
   },
-  "enabledPlugins": { "ethernal-nest-react@tms": true }
+  "enabledPlugins": {
+    "ethernal-nest-react@tms": true,
+    "core@ethernal": true,
+    "nestjs@ethernal": true,
+    "react@ethernal": true,
+    "sql@ethernal": true,
+    "typescript@ethernal": true,
+    "superpowers@claude-plugins-official": true
+  }
 }
